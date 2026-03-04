@@ -74,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .nav-btn.active{color:var(--gold);}
 .nav-btn.active::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--gold);border-radius:0 0 2px 2px;}
 .nav-icon{font-size:18px;}
-.fab{position:fixed;bottom:74px;right:calc(50% - 230px);width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#e09d1a);border:none;cursor:pointer;font-size:26px;color:var(--bg);box-shadow:0 4px 20px rgba(240,180,41,0.4);display:flex;align-items:center;justify-content:center;z-index:150;}
+.fab{position:fixed;bottom:82px;right:16px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#e09d1a);border:none;cursor:pointer;font-size:26px;color:var(--bg);box-shadow:0 4px 20px rgba(240,180,41,0.4);display:flex;align-items:center;justify-content:center;z-index:150;}
 
 /* PAGES */
 .page{display:none;padding:16px;animation:fadeIn 0.2s ease;}
@@ -598,7 +598,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             </div>
             <div class="form-hint">Leave blank if not a numbered card</div>
           </div>
-          <button class="btn btn-primary" onclick="switchAddTab('price')">Next: Price & Notes →</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="saveNewCard()">✅ Save Card</button>
+            <button class="btn btn-secondary" style="flex:1;margin:0 0 10px" onclick="switchAddTab('price')">More Details →</button>
+          </div>
         </div>
         <!-- Price Tab -->
         <div id="add-price" style="display:none">
@@ -607,8 +610,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <div class="form-group"><label class="form-label">Est. Value</label><input class="form-input" id="n-value" type="number" step="0.01" placeholder="$0.00"></div>
           </div>
           <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="n-notes" placeholder="Any notes about the card..."></textarea></div>
-          <button class="btn btn-secondary" style="margin-bottom:8px" onclick="switchAddTab('info')">← Back</button>
-          <button class="btn btn-primary" onclick="switchAddTab('grade')">Next: Grading →</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" style="flex:1;margin:0 0 10px" onclick="switchAddTab('info')">← Back</button>
+            <button class="btn btn-primary" style="flex:1" onclick="saveNewCard()">✅ Save Card</button>
+          </div>
+          <button class="btn btn-secondary" onclick="switchAddTab('grade')">Grading Info →</button>
         </div>
         <!-- Grade Tab -->
         <div id="add-grade" style="display:none">
@@ -628,8 +634,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             </div>
           </div>
           <div class="form-group"><label class="form-label">PSA Cert # <span class="form-optional">(optional)</span></label><input class="form-input" id="n-cert" placeholder="e.g. 12345678"></div>
-          <button class="btn btn-secondary" style="margin-bottom:8px" onclick="switchAddTab('price')">← Back</button>
-          <button class="btn btn-primary" onclick="saveNewCard()">✅ Save Card</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" style="flex:1;margin:0 0 10px" onclick="switchAddTab('price')">← Back</button>
+            <button class="btn btn-primary" style="flex:1" onclick="saveNewCard()">✅ Save Card</button>
+          </div>
         </div>
       </div>
     </div>
