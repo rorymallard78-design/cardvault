@@ -1145,7 +1145,11 @@ function compressImage(dataUrl, maxSize, quality){
       }
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      resolve(canvas.toDataURL('image/jpeg', quality));
+      // If still too large, compress more
+      let result = canvas.toDataURL('image/jpeg', quality);
+      if(result.length > 500000) result = canvas.toDataURL('image/jpeg', 0.4);
+      if(result.length > 300000) result = canvas.toDataURL('image/jpeg', 0.25);
+      resolve(result);
     };
     img.src=dataUrl;
   });
@@ -1240,7 +1244,15 @@ function saveNewCard(){
   };
   try {
     inventory.unshift(card);
-    save(); closeModal('modal-add'); renderDash(); renderInventory(); renderPlayers(); updateHeader();
+    try {
+      save();
+    } catch(storageErr) {
+      // localStorage full — try saving without photo
+      card.photo = null;
+      save();
+      toast('⚠️ Photo not saved (storage full) but card was saved!', 'error');
+    }
+    closeModal('modal-add'); renderDash(); renderInventory(); renderPlayers(); updateHeader();
     toast('✅ Card added!','success');
   } catch(e) {
     toast('Save error: ' + e.message, 'error');
