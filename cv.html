@@ -1049,9 +1049,9 @@ function switchEditTab(t){
 function saveEdit(){
   const card = inventory.find(c=>c.id===currentCardId); if(!card) return;
   const player = se('e-player').value.trim();
-  const sport = se('e-sport').value;
   if(!player){ toast('Player name required','error'); switchEditTab('info'); return; }
-  if(!sport){ toast('Sport required','error'); switchEditTab('info'); return; }
+  if(!se('e-sport').value) se('e-sport').value='Other';
+  const sport = se('e-sport').value;
   card.player=player; card.sport=sport;
   card.year=se('e-year').value.trim();
   card.team=se('e-team').value.trim();
@@ -1119,17 +1119,36 @@ async function handlePhoto(e){
   e.target.value='';
   const reader = new FileReader();
   reader.onload = async ev => {
-    const b64 = ev.target.result;
-    scanPhoto = b64;
+    // Compress image before storing
+    const compressed = await compressImage(ev.target.result, 800, 0.7);
+    scanPhoto = compressed;
     if(getKey('ai')){
       showAddStep('scanning');
-      se('scan-thumb').src = b64;
-      await runAIScan(b64);
+      se('scan-thumb').src = compressed;
+      await runAIScan(compressed);
     } else {
-      showPhotoForm(b64, false);
+      showPhotoForm(compressed, false);
     }
   };
   reader.readAsDataURL(file);
+}
+
+function compressImage(dataUrl, maxSize, quality){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      let w=img.width, h=img.height;
+      if(w>maxSize||h>maxSize){
+        if(w>h){ h=Math.round(h*maxSize/w); w=maxSize; }
+        else { w=Math.round(w*maxSize/h); h=maxSize; }
+      }
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src=dataUrl;
+  });
 }
 
 async function runAIScan(b64){
@@ -1177,7 +1196,12 @@ function showPhotoForm(b64, aiDid, parsed={}){
   se('ai-filled-badge').style.display = aiDid?'inline-flex':'none';
   if(parsed.player) se('n-player').value=parsed.player;
   if(parsed.year) se('n-year').value=parsed.year;
-  if(parsed.sport) se('n-sport').value=parsed.sport;
+  // Match sport case-insensitively
+  if(parsed.sport){
+    const sports=['Baseball','Basketball','Football','Hockey','Other'];
+    const match = sports.find(s=>s.toLowerCase()===parsed.sport.toLowerCase()) || 'Other';
+    se('n-sport').value=match;
+  }
   if(parsed.team) se('n-team').value=parsed.team;
   if(parsed.set) se('n-set').value=parsed.set;
   if(parsed.cardNum) se('n-cardnum').value=parsed.cardNum;
@@ -1192,9 +1216,9 @@ function showPhotoForm(b64, aiDid, parsed={}){
 
 function saveNewCard(){
   const player = se('n-player').value.trim();
+  if(!player){ toast('Player name required — check Card Info tab','error'); switchAddTab('info'); return; }
+  if(!se('n-sport').value) se('n-sport').value='Other';
   const sport = se('n-sport').value;
-  if(!player){ toast('Player name required','error'); switchAddTab('info'); return; }
-  if(!sport){ toast('Sport required','error'); switchAddTab('info'); return; }
   const cost = parseFloat(se('n-cost').value)||0;
   const card = {
     id: Date.now(),
@@ -1214,9 +1238,13 @@ function saveNewCard(){
     photo: scanPhoto||null,
     dateAdded: new Date().toISOString()
   };
-  inventory.unshift(card);
-  save(); closeModal('modal-add'); renderDash(); renderInventory(); renderPlayers(); updateHeader();
-  toast('✅ Card added!','success');
+  try {
+    inventory.unshift(card);
+    save(); closeModal('modal-add'); renderDash(); renderInventory(); renderPlayers(); updateHeader();
+    toast('✅ Card added!','success');
+  } catch(e) {
+    toast('Save error: ' + e.message, 'error');
+  }
 }
 
 // ===== SELL =====
