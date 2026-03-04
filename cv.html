@@ -910,15 +910,21 @@ function bindCardTaps(container) {
 
 // ===== OPEN CARD =====
 function openCard(id){
-  const card = inventory.find(c=>c.id===id);
-  if(!card){ toast('Card not found','error'); return; }
-  currentCardId = id;
-  renderDetail(card);
-  openModal('modal-detail');
+  try {
+    const card = inventory.find(c=>c.id===id);
+    if(!card){ toast('Card not found','error'); return; }
+    currentCardId = id;
+    renderDetail(card);
+    openModal('modal-detail');
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    console.error(e);
+  }
 }
 
 // ===== DETAIL VIEW =====
 function renderDetail(card){
+  const id = card.id;
   const pl = (card.value||0)-(card.cost||0);
   const plClass = pl>=0?'var(--green)':'var(--red)';
   const img = card.photo ? `<img src="${card.photo}" alt="">` : sportEmoji(card.sport);
