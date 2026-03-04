@@ -1532,7 +1532,7 @@ function renderInsights() {
       : `<span>${sportEmoji(c.sport)}</span>`;
     const meta = [c.year, c.set, c.grade||c.condition].filter(Boolean).join(' · ');
     return `
-      <div class="insights-card" data-card-id="${c.id}">
+      <div class="insights-card" onclick="cardTap(${c.id})">
         <div class="insights-rank ${rankClass}">${rank}</div>
         <div class="insights-card-img">${img}</div>
         <div class="insights-card-info">
@@ -1995,7 +1995,7 @@ function cardItemHTML(card, showPL=true) {
   const playerSafe = (card.player||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;");
   const metaSafe = metaParts.join(' · ').replace(/'/g,"&#39;") || card.team || '—';
   return `
-    <div class="card-item" data-card-id="${card.id}">
+    <div class="card-item" onclick="cardTap(${card.id})">
       <div class="card-item-img">${imgContent}</div>
       <div class="card-item-body">
         <div class="card-item-name">${playerSafe}</div>
@@ -2477,14 +2477,8 @@ function setDate() {
 loadData();
 setDate();
 
-// Event delegation for card item clicks (more reliable on mobile than inline onclick)
-document.addEventListener('click', function(e) {
-  const cardItem = e.target.closest('[data-card-id]');
-  if(cardItem) {
-    const id = parseInt(cardItem.dataset.cardId);
-    if(id) openDetail(id);
-  }
-});
+// Simple global tap handler for card items
+function cardTap(id) { openDetail(id); }
 
 checkSharedView().then(()=>{
   if(document.getElementById('main-app').style.display!=='none') renderDash();
