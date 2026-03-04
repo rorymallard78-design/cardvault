@@ -2479,11 +2479,14 @@ setDate();
 
 // Simple global tap handler for card items
 function cardTap(id) {
-  try {
-    openDetail(id);
-  } catch(e) {
-    alert('Error opening card: ' + e.message);
-  }
+  currentCardId = id;
+  // Force close any open modals first
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+  document.body.style.overflow = '';
+  const card = inventory.find(c => c.id === id);
+  if(!card) { showToast('Card not found', 'error'); return; }
+  showToast('Opening ' + card.player + '...', '');
+  setTimeout(() => openDetail(id), 100);
 }
 
 checkSharedView().then(()=>{
