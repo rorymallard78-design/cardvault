@@ -866,7 +866,7 @@ function cardHTML(card, showPL=true){
   const meta = [card.year, safe(card.set), safe(card.variation), card.cardNum].filter(Boolean).join(' · ');
   const gradeTag = card.grade ? `<span class="tag tag-grade">${safe(card.grade)}</span>` : `<span class="tag tag-cond">${safe(card.condition)}</span>`;
   const printTag = card.printRun ? `<span class="tag tag-print">/${card.printRun}</span>` : '';
-  return `<div class="card-item" ontouchstart="" onclick="openCard(${card.id})">
+  return `<div class="card-item" data-id="${card.id}">
     <div class="card-thumb">${img}</div>
     <div class="card-body">
       <div class="card-name">${safe(card.player)}</div>
@@ -879,6 +879,21 @@ function cardHTML(card, showPL=true){
       ${showPL?`<div class="price-pl ${pl>=0?'pos':'neg'}">${fmtPL(pl)}</div>`:''}
     </div>
   </div>`;
+}
+
+// ===== BIND CARD TAPS =====
+function bindCardTaps(container) {
+  if(!container) return;
+  container.querySelectorAll('.card-item[data-id]').forEach(el => {
+    el.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openCard(parseInt(this.dataset.id));
+    }, {passive: false});
+    el.addEventListener('click', function(e) {
+      openCard(parseInt(this.dataset.id));
+    });
+  });
 }
 
 // ===== OPEN CARD =====
@@ -1251,6 +1266,7 @@ function renderDash(){
   const recent = inventory.slice(0,5);
   se('dash-recent').innerHTML = recent.length ? recent.map(c=>cardHTML(c)).join('') :
     `<div class="empty"><div class="empty-icon">🃏</div><div class="empty-title">Empty Vault</div><div class="empty-sub">Tap + to add your first card</div></div>`;
+  bindCardTaps(se('dash-recent'));
   updateHeader();
 }
 function updateHeader(){
@@ -1274,6 +1290,7 @@ function renderInventory(){
     return matchSport&&matchSearch;
   });
   se('inv-list').innerHTML=list.length?list.map(c=>cardHTML(c)).join(''):`<div class="empty"><div class="empty-icon">🃏</div><div class="empty-title">No Cards Found</div><div class="empty-sub">${inventory.length?'Try a different search':'Tap + to add your first card'}</div></div>`;
+  bindCardTaps(se('inv-list'));
 }
 function setSportFilter(val, el){
   sportFilter=val;
@@ -1321,6 +1338,7 @@ function openPlayerFolder(name){
       </div>
     </div>
     ${cards.map(c=>cardHTML(c)).join('')}`;
+  bindCardTaps(se('player-detail-content'));
 }
 function closePlayerFolder(){
   se('players-list-view').style.display='block';
@@ -1366,7 +1384,7 @@ function renderInsights(){
     const img=c.photo?`<img src="${c.photo}" alt="">`:sportEmoji(c.sport);
     const meta=[c.year,safe(c.set),safe(c.grade||c.condition)].filter(Boolean).join(' · ');
     const rankClass=rank<=3?['','rank-1','rank-2','rank-3'][rank]:'';
-    return `<div class="insight-item" onclick="openCard(${c.id})">
+    return `<div class="insight-item card-item" data-id="${c.id}">
       <div class="insight-rank ${rankClass}">${rank}</div>
       <div class="insight-thumb">${img}</div>
       <div class="insight-info"><div class="insight-name">${safe(c.player)}</div><div class="insight-meta">${meta||c.sport}</div></div>
@@ -1375,11 +1393,13 @@ function renderInsights(){
   }
   const byVal=[...inventory].sort((a,b)=>(b.value||0)-(a.value||0));
   se('i-top').innerHTML=byVal.slice(0,10).map((c,i)=>insightItem(c,i+1,fmt(c.value),fmtPL((c.value||0)-(c.cost||0)),(c.value||0)>=(c.cost||0)?'var(--green)':'var(--red)')).join('');
+  bindCardTaps(se('i-top'));
   const withPL=[...inventory].map(c=>({...c,pl:(c.value||0)-(c.cost||0)}));
   const gainers=withPL.filter(c=>c.pl>0).sort((a,b)=>b.pl-a.pl);
   se('i-gainers').innerHTML=gainers.length?gainers.slice(0,10).map((c,i)=>insightItem(c,i+1,fmtPL(c.pl),fmt(c.value),'var(--green)')).join(''):`<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">No gainers yet</div>`;
   const losers=withPL.filter(c=>c.pl<0).sort((a,b)=>a.pl-b.pl);
   se('i-losers').innerHTML=losers.length?losers.slice(0,10).map((c,i)=>insightItem(c,i+1,fmtPL(c.pl),fmt(c.value),'var(--red)')).join(''):`<div style="text-align:center;padding:16px;color:var(--green);font-size:13px">No losers — great work! 🎉</div>`;
+  bindCardTaps(se('i-losers'));
 }
 
 // ===== EBAY =====
