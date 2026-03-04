@@ -1211,6 +1211,12 @@ Rules: sport = Baseball/Basketball/Football/Hockey/Other. condition = Raw/NM-MT/
 }
 
 function showPhotoForm(b64, aiDid, parsed={}){
+  // Always store the photo here — this is the definitive moment
+  if(b64 && b64.length > 100) {
+    scanPhoto = b64;
+    const photoInput = se('n-photo-data');
+    if(photoInput) photoInput.value = b64;
+  }
   se('photo-strip').style.display='flex';
   se('strip-img').src = b64;
   se('ai-filled-badge').style.display = aiDid?'inline-flex':'none';
@@ -1240,6 +1246,8 @@ function saveNewCard(){
   if(!se('n-sport').value) se('n-sport').value='Other';
   const sport = se('n-sport').value;
   const cost = parseFloat(se('n-cost').value)||0;
+  const photoVal = scanPhoto || (se('n-photo-data') ? se('n-photo-data').value || null : null);
+  alert('SAVE DEBUG: scanPhoto length=' + (scanPhoto?scanPhoto.length:0) + ' hiddenInput length=' + (se('n-photo-data')?se('n-photo-data').value.length:0) + ' final photo=' + (photoVal?'YES '+photoVal.length:'NULL'));
   const card = {
     id: Date.now(),
     player, sport,
@@ -1255,7 +1263,7 @@ function saveNewCard(){
     cost,
     value: parseFloat(se('n-value').value)||cost,
     notes: se('n-notes').value.trim(),
-    photo: scanPhoto || (se('n-photo-data') ? se('n-photo-data').value || null : null),
+    photo: photoVal,
     dateAdded: new Date().toISOString()
   };
   try {
