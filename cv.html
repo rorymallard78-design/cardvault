@@ -116,6 +116,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 /* CARD ITEMS */
 .card-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+.card-item *{pointer-events:none;}
 .card-item:active{background:var(--bg3);border-color:var(--border2);}
 .card-thumb{width:52px;height:72px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;}
 .card-thumb img{width:100%;height:100%;object-fit:cover;}
@@ -866,7 +867,7 @@ function cardHTML(card, showPL=true){
   const meta = [card.year, safe(card.set), safe(card.variation), card.cardNum].filter(Boolean).join(' · ');
   const gradeTag = card.grade ? `<span class="tag tag-grade">${safe(card.grade)}</span>` : `<span class="tag tag-cond">${safe(card.condition)}</span>`;
   const printTag = card.printRun ? `<span class="tag tag-print">/${card.printRun}</span>` : '';
-  return `<div class="card-item" data-id="${card.id}">
+  return `<div class="card-item" onclick="openCard(${card.id})">
     <div class="card-thumb">${img}</div>
     <div class="card-body">
       <div class="card-name">${safe(card.player)}</div>
@@ -883,32 +884,7 @@ function cardHTML(card, showPL=true){
 
 // ===== BIND CARD TAPS =====
 function bindCardTaps(container) {
-  if(!container) return;
-  container.querySelectorAll('.card-item[data-id]').forEach(el => {
-    let startX, startY;
-    el.addEventListener('touchstart', function(e) {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      e.stopPropagation();
-    }, {passive: true});
-    el.addEventListener('touchend', function(e) {
-      const dx = Math.abs(e.changedTouches[0].clientX - startX);
-      const dy = Math.abs(e.changedTouches[0].clientY - startY);
-      if(dx < 20 && dy < 20) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        const id = parseInt(this.dataset.id);
-        alert('Step 1: touchend fired, id=' + id + ', inventory size=' + inventory.length);
-        const card = inventory.find(c=>c.id===id);
-        alert('Step 2: card found=' + (card ? card.player : 'NOT FOUND'));
-        openCard(id);
-      }
-    }, {passive: false});
-    // Prevent Chrome text search popup on long press
-    el.addEventListener('contextmenu', function(e) {
-      e.preventDefault();
-    });
-  });
+  // pointer-events:none on children means onclick on parent always fires
 }
 
 // ===== OPEN CARD =====
@@ -1405,7 +1381,7 @@ function renderInsights(){
     const img=c.photo?`<img src="${c.photo}" alt="">`:sportEmoji(c.sport);
     const meta=[c.year,safe(c.set),safe(c.grade||c.condition)].filter(Boolean).join(' · ');
     const rankClass=rank<=3?['','rank-1','rank-2','rank-3'][rank]:'';
-    return `<div class="insight-item card-item" data-id="${c.id}">
+    return `<div class="insight-item card-item" onclick="openCard(${c.id})">
       <div class="insight-rank ${rankClass}">${rank}</div>
       <div class="insight-thumb">${img}</div>
       <div class="insight-info"><div class="insight-name">${safe(c.player)}</div><div class="insight-meta">${meta||c.sport}</div></div>
