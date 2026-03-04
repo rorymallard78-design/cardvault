@@ -2478,7 +2478,13 @@ loadData();
 setDate();
 
 // Simple global tap handler for card items
-function cardTap(id) { openDetail(id); }
+function cardTap(id) {
+  try {
+    openDetail(id);
+  } catch(e) {
+    alert('Error opening card: ' + e.message);
+  }
+}
 
 checkSharedView().then(()=>{
   if(document.getElementById('main-app').style.display!=='none') renderDash();
