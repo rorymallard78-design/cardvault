@@ -811,23 +811,51 @@ function showPage(name) {
   document.getElementById('page-'+name).classList.add('active');
   const nb = document.getElementById('nav-'+name);
   if(nb) nb.classList.add('active');
+  // Push state so back button works
+  history.pushState({page: name}, '', '#'+name);
   if(name==='dash') renderDash();
   if(name==='inventory') renderInventory();
   if(name==='players') renderPlayers();
   if(name==='sold') renderSold();
   if(name==='insights') renderInsights();
   if(name==='settings') {
-    ['ai','ebay','psa'].forEach(updateKeyStatus);
+    ['ai','psa'].forEach(updateKeyStatus);
     document.getElementById('s-card-count').textContent = inventory.length;
     document.getElementById('s-sold-count').textContent = soldHistory.length;
   }
 }
+// Handle back button — close modals or navigate between tabs
+window.addEventListener('popstate', function(e) {
+  // If any modal is open, close it
+  const openModal = document.querySelector('.overlay.open');
+  if(openModal) {
+    openModal.classList.remove('open');
+    document.body.style.overflow='';
+    return;
+  }
+  if(e.state && e.state.page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-'+e.state.page).classList.add('active');
+    const nb = document.getElementById('nav-'+e.state.page);
+    if(nb) nb.classList.add('active');
+    if(e.state.page==='dash') renderDash();
+    if(e.state.page==='inventory') renderInventory();
+    if(e.state.page==='players') renderPlayers();
+    if(e.state.page==='sold') renderSold();
+    if(e.state.page==='insights') renderInsights();
+  } else {
+    history.pushState({page:'dash'}, '', '#dash');
+    showPage('dash');
+  }
+});
 
 // ===== MODALS =====
 function openModal(id) {
   const el = document.getElementById(id);
   el.classList.add('open');
   document.body.style.overflow='hidden';
+  history.pushState({modal: id}, '', '#'+id);
 }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
@@ -1629,6 +1657,7 @@ function clearAllData(){
 // ===== INIT =====
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+history.replaceState({page:'dash'}, '', '#dash');
 checkSharedView().then(()=>{
   if(se('main-app').style.display!=='none') renderDash();
 });
