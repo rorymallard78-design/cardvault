@@ -996,7 +996,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="modal-header">
       <div class="modal-title">Card Details</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn-sm gold" onclick="openEditModal(${id})">✏️ Edit</button>
+        <button class="btn-sm gold" id="detail-edit-btn" onclick="openEditModal(currentCardId)">✏️ Edit</button>
         <button class="modal-close" onclick="closeModal('modal-detail')">✕</button>
       </div>
     </div>
@@ -1984,12 +1984,14 @@ function cardItemHTML(card, showPL=true) {
   const condTag = !card.grade ? `<span class="tag tag-condition">${card.condition}</span>` : '';
   const printTag = card.printRun ? `<span class="tag" style="background:var(--gold-dim);color:var(--gold);border:1px solid rgba(240,180,41,0.3)">/${card.printRun}</span>` : '';
   const metaParts = [card.year,card.set,card.variation,card.cardNum].filter(Boolean);
+  const playerSafe = (card.player||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+  const metaSafe = metaParts.join(' · ').replace(/'/g,"&#39;") || card.team || '—';
   return `
     <div class="card-item" onclick="openDetail(${card.id})">
       <div class="card-item-img">${imgContent}</div>
       <div class="card-item-body">
-        <div class="card-item-name">${card.player}</div>
-        <div class="card-item-meta">${metaParts.join(' · ')||card.team||'—'}</div>
+        <div class="card-item-name">${playerSafe}</div>
+        <div class="card-item-meta">${metaSafe}</div>
         <div class="card-item-tags"><span class="tag tag-sport">${sportEmoji(card.sport)} ${card.sport}</span>${gradeTag}${condTag}${printTag}</div>
       </div>
       <div class="card-item-prices">
@@ -2049,9 +2051,11 @@ function updateHeaderStats() {
 function openDetail(id) {
   currentCardId = id;
   const card = inventory.find(c=>c.id===id); if(!card) return;
+  // Sanitize text fields so apostrophes/quotes don't break HTML
+  const safe = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const pl=card.value-card.cost, plClass=pl>=0?'green':'red', plPct=card.cost>0?((pl/card.cost)*100).toFixed(1):'0.0';
   const imgContent=card.photo?`<img src="${card.photo}" alt="card">`:`${sportEmoji(card.sport)}`;
-  const metaParts=[card.year,card.set,card.variation,card.cardNum].filter(Boolean);
+  const metaParts=[card.year,safe(card.set),safe(card.variation),safe(card.cardNum)].filter(Boolean);
   const dateAdded=card.dateAdded?new Date(card.dateAdded).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
   const ebayQuery=encodeURIComponent([card.player,card.year,card.set,card.variation,card.grade||card.condition].filter(Boolean).join(' '));
   const ebayUrl=`https://www.ebay.com/sch/i.html?_nkw=${ebayQuery}&LH_Complete=1&LH_Sold=1&_sop=12`;
@@ -2061,9 +2065,9 @@ function openDetail(id) {
     <div class="detail-hero">
       <div class="detail-img">${imgContent}</div>
       <div class="detail-info">
-        <div class="detail-name">${card.player}</div>
+        <div class="detail-name">${safe(card.player)}</div>
         <div class="detail-meta">${metaParts.join(' · ')||'—'}</div>
-        ${card.team?`<div class="detail-meta" style="margin-top:2px">${card.team}</div>`:''}
+        ${card.team?`<div class="detail-meta" style="margin-top:2px">${safe(card.team)}</div>`:''}
         <div class="detail-tags">
           <span class="tag tag-sport">${sportEmoji(card.sport)} ${card.sport}</span>
           ${card.grade?`<span class="tag tag-grade">${card.grade}</span>`:`<span class="tag tag-condition">${card.condition}</span>`}
@@ -2118,7 +2122,7 @@ function openDetail(id) {
       </div>
     </div>` : ''}
 
-    ${card.notes?`<div class="detail-section"><div class="detail-section-title">Notes</div><div style="font-size:13px;color:var(--text2);line-height:1.5">${card.notes}</div></div>`:''}
+    ${card.notes?`<div class="detail-section"><div class="detail-section-title">Notes</div><div style="font-size:13px;color:var(--text2);line-height:1.5">${safe(card.notes)}</div></div>`:''}
     <div class="detail-section">
       <div class="detail-section-title">Details</div>
       ${card.cardNum?`<div class="detail-row"><span class="detail-row-label">Card #</span><span class="detail-row-val">${card.cardNum}</span></div>`:''}
