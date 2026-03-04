@@ -885,13 +885,25 @@ function cardHTML(card, showPL=true){
 function bindCardTaps(container) {
   if(!container) return;
   container.querySelectorAll('.card-item[data-id]').forEach(el => {
-    el.addEventListener('touchend', function(e) {
-      e.preventDefault();
+    let startX, startY;
+    el.addEventListener('touchstart', function(e) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
       e.stopPropagation();
-      openCard(parseInt(this.dataset.id));
+    }, {passive: true});
+    el.addEventListener('touchend', function(e) {
+      const dx = Math.abs(e.changedTouches[0].clientX - startX);
+      const dy = Math.abs(e.changedTouches[0].clientY - startY);
+      // Fire as long as finger didn't scroll away
+      if(dx < 20 && dy < 20) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        openCard(parseInt(this.dataset.id));
+      }
     }, {passive: false});
-    el.addEventListener('click', function(e) {
-      openCard(parseInt(this.dataset.id));
+    // Prevent Chrome text search popup on long press
+    el.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
     });
   });
 }
