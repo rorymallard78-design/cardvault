@@ -1247,7 +1247,6 @@ function saveNewCard(){
   const sport = se('n-sport').value;
   const cost = parseFloat(se('n-cost').value)||0;
   const photoVal = scanPhoto || (se('n-photo-data') ? se('n-photo-data').value || null : null);
-  alert('SAVE DEBUG: scanPhoto length=' + (scanPhoto?scanPhoto.length:0) + ' hiddenInput length=' + (se('n-photo-data')?se('n-photo-data').value.length:0) + ' final photo=' + (photoVal?'YES '+photoVal.length:'NULL'));
   const card = {
     id: Date.now(),
     player, sport,
