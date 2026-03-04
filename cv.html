@@ -74,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .nav-btn.active{color:var(--gold);}
 .nav-btn.active::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--gold);border-radius:0 0 2px 2px;}
 .nav-icon{font-size:18px;}
-.fab{position:fixed;bottom:82px;right:16px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#e09d1a);border:none;cursor:pointer;font-size:26px;color:var(--bg);box-shadow:0 4px 20px rgba(240,180,41,0.4);display:flex;align-items:center;justify-content:center;z-index:150;}
+.fab{position:fixed;bottom:82px;right:16px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#e09d1a);border:none;cursor:pointer;font-size:26px;color:var(--bg);box-shadow:0 4px 20px rgba(240,180,41,0.4);display:flex;align-items:center;justify-content:center;z-index:150;-webkit-tap-highlight-color:transparent;}
 
 /* PAGES */
 .page{display:none;padding:16px;animation:fadeIn 0.2s ease;}
@@ -773,7 +773,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <script>
 // ===== DATA =====
-const KEYS = { inv:'cv_inv', sold:'cv_sold', ai:'cv_aikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey' };
+const KEYS = { inv:'cv_inventory', sold:'cv_sold', ai:'cv_apikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey' };
 let inventory = [], soldHistory = [], sportFilter = 'all', currentCardId = null, scanPhoto = null, scanParsed = {};
 
 function load() {
@@ -832,23 +832,19 @@ function openModal(id) {
   const el = document.getElementById(id);
   el.classList.add('open');
   document.body.style.overflow='hidden';
-  // Allow backdrop-close only after a short delay to prevent tap-through
-  setTimeout(()=>{
-    el._canClose = true;
-  }, 400);
 }
 function closeModal(id) {
-  const el = document.getElementById(id);
-  el._canClose = false;
-  el.classList.remove('open');
+  document.getElementById(id).classList.remove('open');
   document.body.style.overflow='';
 }
-// Close on backdrop tap
-document.addEventListener('click', function(e){
-  if(e.target.classList.contains('overlay') && e.target.classList.contains('open') && e.target._canClose) {
-    closeModal(e.target.id);
+// Close on backdrop tap - use touchend to avoid conflicts
+document.addEventListener('touchend', function(e){
+  const t = e.target;
+  if(t.classList.contains('overlay') && t.classList.contains('open')) {
+    e.preventDefault();
+    closeModal(t.id);
   }
-});
+}, {passive:false});
 
 // ===== HELPERS =====
 function se(id){ return document.getElementById(id); }
@@ -870,7 +866,7 @@ function cardHTML(card, showPL=true){
   const meta = [card.year, safe(card.set), safe(card.variation), card.cardNum].filter(Boolean).join(' · ');
   const gradeTag = card.grade ? `<span class="tag tag-grade">${safe(card.grade)}</span>` : `<span class="tag tag-cond">${safe(card.condition)}</span>`;
   const printTag = card.printRun ? `<span class="tag tag-print">/${card.printRun}</span>` : '';
-  return `<div class="card-item" onclick="openCard(${card.id})">
+  return `<div class="card-item" ontouchstart="" onclick="openCard(${card.id})">
     <div class="card-thumb">${img}</div>
     <div class="card-body">
       <div class="card-name">${safe(card.player)}</div>
