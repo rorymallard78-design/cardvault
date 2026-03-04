@@ -1432,59 +1432,6 @@ function renderInsights(){
 }
 
 // ===== EBAY =====
-async function fetchEbay(cardId){
-  const card=inventory.find(c=>c.id===cardId); if(!card) return;
-  const btn=se('ebay-btn'); const body=se('ebay-body');
-  if(btn){ btn.textContent='Fetching…'; btn.style.opacity='0.6'; btn.style.pointerEvents='none'; }
-  body.innerHTML='<div class="market-empty">Searching eBay sold listings…</div>';
-  const kw=[card.player,card.year,card.set,card.variation,card.grade||card.condition].filter(Boolean).join(' ');
-  try {
-    // Use corsproxy.io to bypass CORS
-    const ebayUrl=`https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findCompletedItems&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(getKey('ebay'))}&RESPONSE-DATA-FORMAT=JSON&REST-PAYLOAD&keywords=${encodeURIComponent(kw)}&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true&itemFilter(1).name=Category&itemFilter(1).value=212&sortOrder=EndTimeSoonest&paginationInput.entriesPerPage=10`;
-    const resp = await fetch('https://corsproxy.io/?' + encodeURIComponent(ebayUrl));
-    if(!resp.ok) throw new Error('proxy error');
-    const data = await resp.json();
-    const items=data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item||[];
-    if(!items.length){
-      body.innerHTML='<div class="market-empty">No recent sold listings found</div>';
-      if(btn){btn.textContent='Retry';btn.style.opacity='';btn.style.pointerEvents='';}
-      return;
-    }
-    const sales=items.map(i=>({
-      title:i.title?.[0]||'',
-      price:parseFloat(i.sellingStatus?.[0]?.convertedCurrentPrice?.[0]?.__value__||0),
-      date:i.listingInfo?.[0]?.endTime?.[0]||'',
-      url:i.viewItemURL?.[0]||''
-    })).filter(s=>s.price>0);
-    if(!sales.length) throw new Error('No valid prices found');
-    const prices=sales.map(s=>s.price);
-    const avg=prices.reduce((a,b)=>a+b,0)/prices.length;
-    const low=Math.min(...prices), high=Math.max(...prices);
-    body.innerHTML=`<div class="market-stats">
-      <div class="market-stat"><div class="market-stat-val gold">$${avg.toFixed(2)}</div><div class="market-stat-label">Avg</div></div>
-      <div class="market-stat"><div class="market-stat-val">$${low.toFixed(2)}</div><div class="market-stat-label">Low</div></div>
-      <div class="market-stat"><div class="market-stat-val">$${high.toFixed(2)}</div><div class="market-stat-label">High</div></div>
-    </div>
-    ${sales.slice(0,8).map(s=>{
-      const d=s.date?new Date(s.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
-      return `<div class="market-sale" onclick="window.open('${s.url}','_blank')"><span class="market-sale-title">${s.title.slice(0,44)}…</span><span class="market-sale-price">$${s.price.toFixed(2)}</span><span class="market-sale-date">${d}</span></div>`;
-    }).join('')}`;
-    if(btn){btn.textContent='↻ Refresh';btn.style.opacity='';btn.style.pointerEvents='';}
-    if(getKey('ai')) await runAIPrice(cardId, sales, avg, low, high);
-  } catch(err){
-    // Fallback: ask AI to estimate price without eBay data
-    body.innerHTML=`<div class="market-empty" style="color:var(--muted)">eBay live data unavailable.<br>Use the button below to browse manually.</div>`;
-    if(btn){btn.textContent='Retry';btn.style.opacity='';btn.style.pointerEvents='';}
-    if(getKey('ai')){
-      se('ai-price-section').style.display='block';
-      se('ai-price-val').textContent='Estimating…';
-      se('ai-price-range').textContent='';
-      se('ai-reasoning').textContent='';
-      se('ai-conf').innerHTML='';
-      await runAIPriceNoComps(cardId);
-    }
-  }
-}
 
 async function runAIPriceNoComps(cardId){
   const card=inventory.find(c=>c.id===cardId); if(!card) return;
@@ -1536,45 +1483,6 @@ function applyPrice(cardId, val){
 }
 
 // ===== AI PRICE =====
-async function runAIPrice(cardId, sales, avg, low, high){
-  const card=inventory.find(c=>c.id===cardId); if(!card) return;
-  const apiKey=getKey('ai'); if(!apiKey) return;
-  const section=se('ai-price-section');
-  if(section){ section.style.display='block'; se('ai-price-val').textContent='Analyzing…'; se('ai-price-range').textContent=''; se('ai-reasoning').textContent=''; se('ai-conf').innerHTML=''; }
-  const summary=sales.slice(0,8).map(s=>`- "${s.title.slice(0,60)}" sold $${s.price.toFixed(2)} on ${s.date?new Date(s.date).toLocaleDateString():''}`).join('\n');
-  const prompt=`You are a sports card pricing expert. Analyze these eBay sold comps and estimate fair market value for this specific card.
-
-CARD: ${card.player} | ${card.year||'?'} ${card.set||'?'} | Grade: ${card.grade||card.condition} | Sport: ${card.sport}
-
-COMPS:
-${summary}
-
-Stats: Avg $${avg.toFixed(2)}, Low $${low.toFixed(2)}, High $${high.toFixed(2)}
-
-Respond ONLY with JSON (no markdown):
-{"fairValue":0.00,"rangeLow":0.00,"rangeHigh":0.00,"confidence":"high","reasoning":"2-3 sentence explanation"}
-confidence = "high" (very similar comps) | "medium" (somewhat similar) | "low" (poor match)`;
-  try {
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-6',max_tokens:300,messages:[{role:'user',content:prompt}]})});
-    if(!resp.ok) throw new Error('AI error');
-    const data=await resp.json();
-    const parsed=JSON.parse(data.content[0]?.text.replace(/```json|```/g,'').trim()||'{}');
-    const {fairValue,rangeLow,rangeHigh,confidence,reasoning}=parsed;
-    if(!fairValue) throw new Error('No value');
-    se('ai-price-val').textContent=`$${parseFloat(fairValue).toFixed(2)}`;
-    se('ai-price-range').textContent=`Range: $${parseFloat(rangeLow).toFixed(2)} – $${parseFloat(rangeHigh).toFixed(2)}`;
-    se('ai-reasoning').textContent=reasoning;
-    const confClass=confidence==='high'?'conf-high':confidence==='medium'?'conf-med':'conf-low';
-    const confEmoji=confidence==='high'?'🟢':confidence==='medium'?'🟡':'🔴';
-    se('ai-conf').innerHTML=`<span class="confidence ${confClass}">${confEmoji} ${confidence}</span>`;
-    se('use-price-btn').onclick=()=>{
-      const c=inventory.find(c=>c.id===cardId); if(!c) return;
-      c.value=parseFloat(fairValue); save(); updateHeader(); renderDash();
-      const vi=se('val-input'); if(vi) vi.value=parseFloat(fairValue).toFixed(2);
-      toast(`✅ Value set to $${parseFloat(fairValue).toFixed(2)}`,'success');
-    };
-  } catch(e){ if(section) section.style.display='none'; }
-}
 
 // ===== PSA =====
 async function fetchPSA(cardId){
