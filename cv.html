@@ -550,6 +550,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
       <!-- Step 3: Review / Form -->
       <div id="step-form" style="display:none">
+        <input type="hidden" id="n-photo-data">
         <div id="photo-strip" style="display:none" class="photo-strip">
           <div class="photo-strip-img"><img id="strip-img" src=""></div>
           <div style="flex:1">
@@ -1067,6 +1068,8 @@ function saveEdit(){
 function openAddModal(){
   // Reset everything first
   scanPhoto = null; scanParsed = {};
+  const photoInput = se('n-photo-data');
+  if(photoInput) photoInput.value = '';
   ['n-player','n-year','n-team','n-set','n-cardnum','n-variation','n-printrun','n-cost','n-value','n-notes','n-cert'].forEach(id=>{
     const el=se(id); if(el) el.value='';
   });
@@ -1122,6 +1125,9 @@ async function handlePhoto(e){
       return;
     }
     scanPhoto = compressed;
+    // Also store in DOM so it survives any JS variable resets
+    const photoInput = se('n-photo-data');
+    if(photoInput) photoInput.value = compressed;
     if(getKey('ai')){
       showAddStep('scanning');
       se('scan-thumb').src = compressed;
@@ -1249,7 +1255,7 @@ function saveNewCard(){
     cost,
     value: parseFloat(se('n-value').value)||cost,
     notes: se('n-notes').value.trim(),
-    photo: scanPhoto||null,
+    photo: scanPhoto || (se('n-photo-data') ? se('n-photo-data').value || null : null),
     dateAdded: new Date().toISOString()
   };
   try {
