@@ -894,11 +894,14 @@ function bindCardTaps(container) {
     el.addEventListener('touchend', function(e) {
       const dx = Math.abs(e.changedTouches[0].clientX - startX);
       const dy = Math.abs(e.changedTouches[0].clientY - startY);
-      // Fire as long as finger didn't scroll away
       if(dx < 20 && dy < 20) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        openCard(parseInt(this.dataset.id));
+        const id = parseInt(this.dataset.id);
+        alert('Step 1: touchend fired, id=' + id + ', inventory size=' + inventory.length);
+        const card = inventory.find(c=>c.id===id);
+        alert('Step 2: card found=' + (card ? card.player : 'NOT FOUND'));
+        openCard(id);
       }
     }, {passive: false});
     // Prevent Chrome text search popup on long press
