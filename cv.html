@@ -821,16 +821,23 @@ function showPage(name) {
 
 // ===== MODALS =====
 function openModal(id) {
-  document.getElementById(id).classList.add('open');
+  const el = document.getElementById(id);
+  el.classList.add('open');
   document.body.style.overflow='hidden';
+  // Allow backdrop-close only after a short delay to prevent tap-through
+  setTimeout(()=>{
+    el._canClose = true;
+  }, 400);
 }
 function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+  const el = document.getElementById(id);
+  el._canClose = false;
+  el.classList.remove('open');
   document.body.style.overflow='';
 }
 // Close on backdrop tap
 document.addEventListener('click', function(e){
-  if(e.target.classList.contains('overlay') && e.target.classList.contains('open')) {
+  if(e.target.classList.contains('overlay') && e.target.classList.contains('open') && e.target._canClose) {
     closeModal(e.target.id);
   }
 });
@@ -1050,10 +1057,18 @@ function saveEdit(){
 
 // ===== ADD CARD =====
 function openAddModal(){
+  // Reset everything first
   scanPhoto = null; scanParsed = {};
+  ['n-player','n-year','n-team','n-set','n-cardnum','n-variation','n-printrun','n-cost','n-value','n-notes','n-cert'].forEach(id=>{
+    const el=se(id); if(el) el.value='';
+  });
+  se('n-sport').value='';
+  se('n-condition').value='Raw';
+  se('n-grade').value='';
   se('photo-strip').style.display='none';
   se('ai-filled-badge').style.display='none';
-  resetAddForm();
+  se('cam-input').value='';
+  se('upload-input').value='';
   showAddStep('choose');
   se('ai-nudge').style.display = getKey('ai')?'none':'block';
   openModal('modal-add');
