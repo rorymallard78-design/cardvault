@@ -641,6 +641,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <!-- ===== CARD DETAIL MODAL ===== -->
+<!-- Photo Lightbox -->
+<div id="photo-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:999;align-items:center;justify-content:center;cursor:zoom-out" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" style="max-width:95vw;max-height:90dvh;object-fit:contain;border-radius:8px;box-shadow:0 0 60px rgba(0,0,0,0.8);transition:transform 0.2s;">
+  <div style="position:absolute;top:20px;right:20px;color:white;font-size:28px;line-height:1;opacity:0.7;padding:8px">✕</div>
+</div>
+
 <div class="overlay" id="modal-detail">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -825,9 +831,13 @@ function showPage(name) {
 }
 // Handle back button — close modals or navigate between tabs, never exit
 window.addEventListener('popstate', function(e) {
-  // Always push a new state so there's always something to go back to
-  // This prevents the app from closing
-  
+  // Close lightbox first if open
+  const lb = se('photo-lightbox');
+  if(lb && lb.style.display === 'flex') {
+    closeLightbox();
+    try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
+    return;
+  }
   // If any modal is open, close it
   const openModalEl = document.querySelector('.overlay.open');
   if(openModalEl) {
@@ -906,6 +916,20 @@ function bindCardTaps(container) {
   // pointer-events:none on children means onclick on parent always fires
 }
 
+// ===== PHOTO LIGHTBOX =====
+function enlargePhoto(src) {
+  const lb = se('photo-lightbox');
+  se('lightbox-img').src = src;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  try { history.pushState({lightbox:true}, '', '#photo'); } catch(e){}
+}
+function closeLightbox() {
+  const lb = se('photo-lightbox');
+  lb.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
 // ===== OPEN CARD =====
 function openCard(id){
   try {
@@ -934,7 +958,7 @@ function renderDetail(card){
 
   se('detail-body').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-img">${img}</div>
+      <div class="detail-img" ${card.photo ? `onclick="enlargePhoto('${card.photo.replace(/'/g,"\\'")}')" style="cursor:zoom-in"` : ''}>${card.photo ? `<img src="${card.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">` : img}</div>
       <div class="detail-info">
         <div class="detail-name">${safe(card.player)}</div>
         <div class="detail-meta">${meta||'—'}</div>
