@@ -641,10 +641,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <!-- ===== CARD DETAIL MODAL ===== -->
-<!-- Photo Lightbox -->
-<div id="photo-lightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:999;align-items:center;justify-content:center;cursor:zoom-out">
-  <img id="lightbox-img" src="" style="max-width:95vw;max-height:90dvh;object-fit:contain;border-radius:8px;pointer-events:none;">
-  <div style="position:absolute;top:20px;right:20px;color:white;font-size:32px;line-height:1;opacity:0.8;padding:8px;pointer-events:none">✕</div>
+<!-- Photo Zoom Modal -->
+<div class="overlay" id="modal-photo" onclick="closeModal('modal-photo')" style="z-index:400;background:rgba(0,0,0,0.97)">
+  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:20px;position:relative">
+    <img id="zoom-img" src="" style="max-width:100%;max-height:85dvh;object-fit:contain;border-radius:8px;">
+    <div style="position:absolute;top:20px;right:20px;color:white;font-size:32px;opacity:0.8">✕</div>
+  </div>
 </div>
 
 <div class="overlay" id="modal-detail">
@@ -927,27 +929,21 @@ function bindCardTaps(container) {
   }
 }
 
-// ===== PHOTO LIGHTBOX =====
+// ===== PHOTO ZOOM =====
 function enlargePhoto(src) {
-  se('lightbox-img').src = src;
-  se('photo-lightbox').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+  se('zoom-img').src = src;
+  openModal('modal-photo');
 }
-function closeLightbox() {
-  se('photo-lightbox').style.display = 'none';
-  document.body.style.overflow = '';
-}
+function closeLightbox() { closeModal('modal-photo'); }
 
-// Global handler for photo thumb — bypasses scroll container tap interception
+// Global handler for photo thumb
 (function(){
   let thumbStart = null;
   document.addEventListener('touchstart', function(e) {
-    // Check if tap is on the thumb div OR any child of it (img)
-    const el = e.target.id === 'detail-photo-thumb' ? e.target : 
+    const el = e.target.id === 'detail-photo-thumb' ? e.target :
                e.target.closest ? e.target.closest('#detail-photo-thumb') : null;
     if(el) {
       thumbStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
-      e.stopPropagation();
     } else { thumbStart = null; }
   }, {passive: true});
   document.addEventListener('touchend', function(e) {
