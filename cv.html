@@ -916,12 +916,27 @@ function bindCardTaps(container) {
   // pointer-events:none on children means onclick on parent always fires
   // Bind photo tap to lightbox after render
   if(card.photo) {
-    const thumb = se('detail-photo-thumb');
-    if(thumb) {
-      thumb.style.cursor = 'zoom-in';
-      thumb.addEventListener('click', function() { enlargePhoto(card.photo); });
-      thumb.addEventListener('touchend', function(e) { e.preventDefault(); enlargePhoto(card.photo); }, {passive:false});
-    }
+    setTimeout(() => {
+      const thumb = se('detail-photo-thumb');
+      if(thumb) {
+        thumb.style.cursor = 'zoom-in';
+        let tapStart = 0;
+        thumb.addEventListener('touchstart', function(e) {
+          tapStart = Date.now();
+        }, {passive: true});
+        thumb.addEventListener('touchend', function(e) {
+          if(Date.now() - tapStart < 400) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            enlargePhoto(card.photo);
+          }
+        }, {passive: false});
+        thumb.addEventListener('click', function(e) {
+          e.stopPropagation();
+          enlargePhoto(card.photo);
+        });
+      }
+    }, 100);
   }
 }
 
@@ -938,6 +953,16 @@ function closeLightbox() {
   lb.style.display = 'none';
   document.body.style.overflow = '';
 }
+// Bind lightbox close for both click and touch
+document.addEventListener('DOMContentLoaded', function() {
+  const lb = se('photo-lightbox');
+  if(lb) {
+    lb.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      closeLightbox();
+    }, {passive: false});
+  }
+});
 
 // ===== OPEN CARD =====
 function openCard(id){
