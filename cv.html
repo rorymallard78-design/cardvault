@@ -916,11 +916,12 @@ function bindCardTaps(container) {
   // pointer-events:none on children means onclick on parent always fires
   // Bind photo tap to lightbox after render
   if(card.photo) {
+    // Store photo on the element as a data attribute so global handler can find it
     setTimeout(() => {
       const thumb = se('detail-photo-thumb');
       if(thumb) {
+        thumb.setAttribute('data-photo', '1');
         thumb.style.cursor = 'zoom-in';
-        thumb.onclick = function() { enlargePhoto(card.photo); };
       }
     }, 300);
   }
@@ -936,6 +937,28 @@ function closeLightbox() {
   se('photo-lightbox').style.display = 'none';
   document.body.style.overflow = '';
 }
+
+// Global handler for photo thumb — bypasses scroll container tap interception
+(function(){
+  let thumbStart = null;
+  document.addEventListener('touchstart', function(e) {
+    const el = e.target.closest('#detail-photo-thumb');
+    if(el && el.getAttribute('data-photo')) {
+      thumbStart = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+    } else { thumbStart = null; }
+  }, {passive: true});
+  document.addEventListener('touchend', function(e) {
+    if(!thumbStart) return;
+    const dx = Math.abs(e.changedTouches[0].clientX - thumbStart.x);
+    const dy = Math.abs(e.changedTouches[0].clientY - thumbStart.y);
+    if(dx < 15 && dy < 15) {
+      e.preventDefault();
+      const card = inventory.find(c=>c.id===currentCardId);
+      if(card && card.photo) enlargePhoto(card.photo);
+    }
+    thumbStart = null;
+  }, {passive: false});
+})();
 
 // ===== OPEN CARD =====
 function openCard(id){
