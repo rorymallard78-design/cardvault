@@ -642,9 +642,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <!-- ===== CARD DETAIL MODAL ===== -->
 <!-- Photo Lightbox -->
-<div id="photo-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:999;align-items:center;justify-content:center;cursor:zoom-out" onclick="closeLightbox()">
-  <img id="lightbox-img" src="" style="max-width:95vw;max-height:90dvh;object-fit:contain;border-radius:8px;box-shadow:0 0 60px rgba(0,0,0,0.8);transition:transform 0.2s;">
-  <div style="position:absolute;top:20px;right:20px;color:white;font-size:28px;line-height:1;opacity:0.7;padding:8px">✕</div>
+<div id="photo-lightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:999;align-items:center;justify-content:center;cursor:zoom-out">
+  <img id="lightbox-img" src="" style="max-width:95vw;max-height:90dvh;object-fit:contain;border-radius:8px;pointer-events:none;">
+  <div style="position:absolute;top:20px;right:20px;color:white;font-size:32px;line-height:1;opacity:0.8;padding:8px;pointer-events:none">✕</div>
 </div>
 
 <div class="overlay" id="modal-detail">
@@ -920,49 +920,22 @@ function bindCardTaps(container) {
       const thumb = se('detail-photo-thumb');
       if(thumb) {
         thumb.style.cursor = 'zoom-in';
-        let tapStart = 0;
-        thumb.addEventListener('touchstart', function(e) {
-          tapStart = Date.now();
-        }, {passive: true});
-        thumb.addEventListener('touchend', function(e) {
-          if(Date.now() - tapStart < 400) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            enlargePhoto(card.photo);
-          }
-        }, {passive: false});
-        thumb.addEventListener('click', function(e) {
-          e.stopPropagation();
-          enlargePhoto(card.photo);
-        });
+        thumb.onclick = function() { enlargePhoto(card.photo); };
       }
-    }, 100);
+    }, 300);
   }
 }
 
 // ===== PHOTO LIGHTBOX =====
 function enlargePhoto(src) {
-  const lb = se('photo-lightbox');
   se('lightbox-img').src = src;
-  lb.style.display = 'flex';
+  se('photo-lightbox').style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  try { history.pushState({lightbox:true}, '', '#photo'); } catch(e){}
 }
 function closeLightbox() {
-  const lb = se('photo-lightbox');
-  lb.style.display = 'none';
+  se('photo-lightbox').style.display = 'none';
   document.body.style.overflow = '';
 }
-// Bind lightbox close for both click and touch
-document.addEventListener('DOMContentLoaded', function() {
-  const lb = se('photo-lightbox');
-  if(lb) {
-    lb.addEventListener('touchend', function(e) {
-      e.preventDefault();
-      closeLightbox();
-    }, {passive: false});
-  }
-});
 
 // ===== OPEN CARD =====
 function openCard(id){
