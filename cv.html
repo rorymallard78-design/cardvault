@@ -172,8 +172,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 /* DETAIL */
 .detail-hero{display:flex;gap:14px;margin-bottom:14px;align-items:flex-start;}
-.detail-img{width:90px;height:126px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;}
-.detail-img img{width:100%;height:100%;object-fit:cover;}
+.detail-img{width:90px;height:126px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;cursor:zoom-in;}
+.detail-img img{width:100%;height:100%;object-fit:cover;pointer-events:none;}
 .detail-info{flex:1;min-width:0;}
 .detail-name{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;line-height:1.1;}
 .detail-meta{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.5;}
@@ -914,6 +914,15 @@ function cardHTML(card, showPL=true){
 // ===== BIND CARD TAPS =====
 function bindCardTaps(container) {
   // pointer-events:none on children means onclick on parent always fires
+  // Bind photo tap to lightbox after render
+  if(card.photo) {
+    const thumb = se('detail-photo-thumb');
+    if(thumb) {
+      thumb.style.cursor = 'zoom-in';
+      thumb.addEventListener('click', function() { enlargePhoto(card.photo); });
+      thumb.addEventListener('touchend', function(e) { e.preventDefault(); enlargePhoto(card.photo); }, {passive:false});
+    }
+  }
 }
 
 // ===== PHOTO LIGHTBOX =====
@@ -958,7 +967,7 @@ function renderDetail(card){
 
   se('detail-body').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-img" ${card.photo ? `onclick="enlargePhoto('${card.photo.replace(/'/g,"\\'")}')" style="cursor:zoom-in"` : ''}>${card.photo ? `<img src="${card.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">` : img}</div>
+      <div class="detail-img" id="detail-photo-thumb">${card.photo ? `<img src="${card.photo}" alt="">` : img}</div>
       <div class="detail-info">
         <div class="detail-name">${safe(card.player)}</div>
         <div class="detail-meta">${meta||'—'}</div>
