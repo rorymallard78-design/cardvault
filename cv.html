@@ -833,28 +833,24 @@ function showPage(name) {
 }
 // Handle back button — close modals or navigate between tabs, never exit
 window.addEventListener('popstate', function(e) {
-  // Close lightbox first if open
-  const lb = se('photo-lightbox');
-  if(lb && lb.style.display === 'flex') {
-    closeLightbox();
-    try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
+  // Check for open modals from top (most recently opened) first
+  const openModals = [...document.querySelectorAll('.overlay.open')];
+  if(openModals.length) {
+    // Close the last opened modal
+    const topModal = openModals[openModals.length - 1];
+    topModal.classList.remove('open');
+    document.body.style.overflow = openModals.length > 1 ? 'hidden' : '';
+    // Always push a new state so next back press is caught
+    try { history.pushState({page:'stay'}, '', '#stay'); } catch(e) {}
     return;
   }
-  // If any modal is open, close it
-  const openModalEl = document.querySelector('.overlay.open');
-  if(openModalEl) {
-    openModalEl.classList.remove('open');
-    document.body.style.overflow='';
-    try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
-    return;
-  }
-  // If on a non-dash page, go to dash
+  // No modals open — navigate between tabs
   const activePage = document.querySelector('.page.active');
   if(activePage && activePage.id !== 'page-dash') {
     showPage('dash');
     return;
   }
-  // Already on dash — push state again to prevent exit
+  // Already on dash — push state to prevent app exit
   try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
 });
 
@@ -867,7 +863,10 @@ function openModal(id) {
 }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
-  document.body.style.overflow='';
+  // Only restore scroll if no other modals open
+  if(!document.querySelector('.overlay.open')) document.body.style.overflow='';
+  // Push state so next back press is caught
+  try { history.pushState({page:'stay'}, '', '#stay'); } catch(e) {}
 }
 // Close on backdrop tap - use touchend to avoid conflicts
 document.addEventListener('touchend', function(e){
@@ -1708,6 +1707,7 @@ load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
 // Push two history entries so back button never exits the app
 try { history.replaceState({page:'dash'}, '', '#dash'); } catch(e) {}
+try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
 try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
 checkSharedView().then(()=>{
   if(se('main-app').style.display!=='none') renderDash();
