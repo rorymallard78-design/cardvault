@@ -330,6 +330,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div style="padding:16px;" id="shared-body"></div>
 </div>
 
+<!-- SHARED CARD DETAIL MODAL -->
+<div id="shared-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);overflow-y:auto;" onclick="if(event.target===this)closeSharedModal()">
+  <div style="background:var(--bg2);border-radius:16px;max-width:480px;margin:20px auto;padding:0;overflow:hidden;position:relative;">
+    <button onclick="closeSharedModal()" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.5);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;z-index:1;display:flex;align-items:center;justify-content:center;">×</button>
+    <div id="shared-modal-body" style="padding:0"></div>
+  </div>
+</div>
+
 <!-- MAIN APP -->
 <div id="main-app">
 
@@ -1742,17 +1750,23 @@ async function decompressShare(encoded) {
 async function generateShareLink(){
   se('share-body').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Generating link…</div>';
   try {
-    const snapshot=inventory.map(c=>({...c,cost:undefined,photo:c.photo?'[photo]':null}));
+    // Include photos — they compress well with gzip
+    const snapshot=inventory.map(c=>({...c,cost:undefined}));
     const encoded = await compressShare(JSON.stringify(snapshot));
-    // Build clean URL — strip ALL hash and query params
     const base=window.location.protocol+'//'+window.location.host+window.location.pathname.replace(/\/+$/,'');
     const shareUrl=base+'?share='+encoded;
     const charCount = shareUrl.length;
-    const sizeNote = charCount < 2000 ? '✅ Short enough for iMessage' : '⚠️ Long link — use Copy and paste manually';
+    let sizeNote, sizeColor;
+    if(charCount < 2000){ sizeNote='✅ Short enough for iMessage'; sizeColor='var(--green)'; }
+    else if(charCount < 4000){ sizeNote='⚠️ May not work in iMessage — use Copy and paste into browser'; sizeColor='var(--gold)'; }
+    else { sizeNote='❌ Too long for iMessage — paste link directly into browser address bar'; sizeColor='var(--red)'; }
     se('share-body').innerHTML=`<div style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${charCount} characters · ${sizeNote}</div>
+    <div style="font-size:11px;color:${sizeColor};margin-bottom:10px;font-weight:500">${charCount.toLocaleString()} chars · ${sizeNote}</div>
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);word-break:break-all;margin-bottom:12px">${shareUrl}</div>
-    <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${shareUrl}').then(()=>toast('✅ Link copied!','success'))">📋 Copy Link</button>`;
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="navigator.clipboard.writeText('${shareUrl}').then(()=>toast('✅ Link copied!','success'))">📋 Copy Link</button>
+      ${typeof navigator.share!=='undefined'?`<button class="btn" style="flex:1" onclick="navigator.share({url:'${shareUrl}',title:'My Card Collection'}).catch(()=>{})">↑ Share</button>`:''}
+    </div>`;
   } catch(e){ se('share-body').innerHTML=`<div style="color:var(--red)">Error generating link: ${e.message}</div>`; }
 }
 
@@ -1763,12 +1777,42 @@ function _extractShareRaw(str) {
   if(idx === -1) return null;
   return str.slice(idx + 6).split('&')[0] || null;
 }
+// Shared view card data — stored so modal can access it
+let _sharedCards = [];
+
+function openSharedCard(idx) {
+  const c = _sharedCards[idx];
+  if(!c) return;
+  const hasPhoto = c.photo && c.photo !== '[photo]';
+  const meta = [c.year, safe(c.team), safe(c.set)].filter(Boolean).join(' · ');
+  const variation = c.variation ? `<div style="font-size:13px;color:var(--gold);margin-bottom:8px">${safe(c.variation)}</div>` : '';
+  const printRun = c.printRun ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Print Run: /${c.printRun}</div>` : '';
+  const grade = c.grade ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Grade: ${safe(c.grade)}${c.certNumber?' · Cert #'+safe(c.certNumber):''}</div>` : '';
+  const cond = !c.grade && c.condition ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Condition: ${safe(c.condition)}</div>` : '';
+  const notes = c.notes ? `<div style="font-size:12px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${safe(c.notes)}</div>` : '';
+  se('shared-modal-body').innerHTML = `
+    ${hasPhoto ? `<div style="width:100%;background:#000;max-height:320px;overflow:hidden;display:flex;align-items:center;justify-content:center;"><img src="${c.photo}" style="width:100%;max-height:320px;object-fit:contain;"></div>` : `<div style="width:100%;height:160px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:56px">${sportEmoji(c.sport)}</div>`}
+    <div style="padding:16px">
+      <div style="font-size:20px;font-weight:700;margin-bottom:4px">${safe(c.player)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${meta}</div>
+      ${variation}${printRun}${grade}${cond}
+      <div style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px">${fmt(c.value)}</div>
+      ${notes}
+    </div>`;
+  se('shared-modal').style.display='block';
+  document.body.style.overflow='hidden';
+}
+
+function closeSharedModal() {
+  se('shared-modal').style.display='none';
+  document.body.style.overflow='';
+}
+
 async function checkSharedView(){
   let shareData = _extractShareRaw(window.location.search);
   if(!shareData) shareData = _extractShareRaw(window.location.hash || '');
   if(!shareData) return false;
   try {
-    // Try compressed decode first, fall back to plain base64 for old links
     let jsonStr;
     try {
       jsonStr = await decompressShare(shareData);
@@ -1779,19 +1823,22 @@ async function checkSharedView(){
       jsonStr = decodeURIComponent(escape(atob(b64)));
     }
     const cards = JSON.parse(jsonStr);
+    _sharedCards = cards;
     se('main-app').style.display='none';
     se('shared-view').style.display='block';
     const total=cards.reduce((s,c)=>s+(c.value||0),0);
-    se('shared-body').innerHTML=`<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · ${fmt(total)} total value</div>`+cards.map(c=>{
-      const img=c.photo&&c.photo!=='[photo]'?`<img src="${c.photo}" alt="">`:sportEmoji(c.sport);
-      const meta=[c.year,safe(c.set),safe(c.variation),c.cardNum].filter(Boolean).join(' · ');
-      return `<div class="card-item" style="cursor:default">
-        <div class="card-thumb">${img}</div>
-        <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
-        <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
-        <div class="card-prices"><div class="price-val">${fmt(c.value)}</div></div>
-      </div>`;
-    }).join('');
+    se('shared-body').innerHTML=`<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · ${fmt(total)} total value · <span style="color:var(--muted)">Tap a card for details</span></div>`
+      +cards.map((c,i)=>{
+        const hasPhoto = c.photo && c.photo !== '[photo]';
+        const thumb = hasPhoto ? `<img src="${c.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:24px">${sportEmoji(c.sport)}</span>`;
+        const meta=[c.year,safe(c.set),safe(c.variation)].filter(Boolean).join(' · ');
+        return `<div class="card-item" style="cursor:pointer" onclick="openSharedCard(${i})">
+          <div class="card-thumb" style="${hasPhoto?'padding:0;overflow:hidden;':'display:flex;align-items:center;justify-content:center;'}">${thumb}</div>
+          <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
+          <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
+          <div class="card-prices"><div class="price-val">${fmt(c.value)}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
+        </div>`;
+      }).join('');
     return true;
   } catch(e){
     console.log('Share parse error', e);
