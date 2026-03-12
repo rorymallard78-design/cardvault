@@ -1726,8 +1726,8 @@ async function generateShareLink(){
   try {
     const snapshot=inventory.map(c=>({...c,cost:undefined,photo:c.photo?'[photo]':null}));
     const encoded=b64encode(JSON.stringify(snapshot));
-    // Always use the clean hosted URL — strip hash and query string
-    const base=window.location.origin+window.location.pathname;
+    // Build clean URL — strip ALL hash and query params so #modal-share etc never pollute the share link
+    const base=window.location.protocol+'//'+window.location.host+window.location.pathname.replace(/\/+$/,'');
     const shareUrl=base+'?share='+encoded;
     se('share-body').innerHTML=`<div style="font-size:13px;color:var(--text2);margin-bottom:12px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);word-break:break-all;margin-bottom:12px">${shareUrl}</div>
@@ -1737,8 +1737,13 @@ async function generateShareLink(){
 
 // ===== SHARED VIEW =====
 function checkSharedView(){
-  const params=new URLSearchParams(window.location.search);
-  const shareData=params.get('share');
+  // Check query string first, then fall back to hash in case URL was malformed (e.g. ?share= ended up after #hash)
+  let shareData = new URLSearchParams(window.location.search).get('share');
+  if(!shareData) {
+    const hashStr = window.location.hash || '';
+    const qIdx = hashStr.indexOf('?');
+    if(qIdx !== -1) shareData = new URLSearchParams(hashStr.slice(qIdx)).get('share');
+  }
   if(!shareData) return false;
   try {
     const cards=JSON.parse(b64decode(shareData));
@@ -1771,8 +1776,10 @@ function clearAllData(){
 // ===== INIT =====
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-// Check share param FIRST before any history changes — history rewriting strips the query string
-const _shareCheck = new URLSearchParams(window.location.search).get('share');
+// Check share param FIRST before any history changes — check both query string and hash
+const _shareCheckQ = new URLSearchParams(window.location.search).get('share');
+const _shareCheckH = (()=>{ const h=window.location.hash||''; const q=h.indexOf('?'); return q!==-1?new URLSearchParams(h.slice(q)).get('share'):null; })();
+const _shareCheck = _shareCheckQ || _shareCheckH;
 if(_shareCheck) {
   // In shared view mode — don't touch history at all, just render the shared view
   checkSharedView();
