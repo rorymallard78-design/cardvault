@@ -833,25 +833,23 @@ function showPage(name) {
 }
 // Handle back button — close modals or navigate between tabs, never exit
 window.addEventListener('popstate', function(e) {
+  // Always push a new state immediately so back can never fully drain the stack
+  setTimeout(()=>{ try { history.pushState({page:'stay'}, '', location.hash||'#dash'); } catch(e){} }, 0);
   // Check for open modals — close topmost one
   const openModals = [...document.querySelectorAll('.overlay.open')];
   if(openModals.length) {
     const topModal = openModals[openModals.length - 1];
     topModal.classList.remove('open');
     if(!document.querySelector('.overlay.open')) document.body.style.overflow = '';
-    // If there are still modals open, push a state for them
-    // If not, push a state for the current page so next back is caught
-    try { history.pushState({page:'stay'}, '', location.hash||'#dash'); } catch(e) {}
     return;
   }
-  // No modals — navigate tabs
+  // No modals — navigate tabs back to dash
   const activePage = document.querySelector('.page.active');
   if(activePage && activePage.id !== 'page-dash') {
     showPage('dash');
     return;
   }
-  // On dash — prevent exit
-  try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
+  // Already on dash — do nothing (state already pushed above)
 });
 
 // ===== MODALS =====
@@ -1220,11 +1218,12 @@ function compressImage(dataUrl, maxSize, quality){
       try {
         const canvas = document.createElement('canvas');
         let w=img.width, h=img.height;
-        // If image has no dimensions, just use original
         if(!w || !h){ resolve(dataUrl); return; }
-        if(w>maxSize||h>maxSize){
-          if(w>h){ h=Math.round(h*maxSize/w); w=maxSize; }
-          else { w=Math.round(w*maxSize/h); h=maxSize; }
+        // Start at 600px max to keep photos small from the start
+        const cap = Math.min(maxSize, 600);
+        if(w>cap||h>cap){
+          if(w>h){ h=Math.round(h*cap/w); w=cap; }
+          else { w=Math.round(w*cap/h); h=cap; }
         }
         canvas.width=w; canvas.height=h;
         const ctx = canvas.getContext('2d');
@@ -1232,15 +1231,26 @@ function compressImage(dataUrl, maxSize, quality){
         ctx.fillRect(0,0,w,h);
         ctx.drawImage(img,0,0,w,h);
         let result = canvas.toDataURL('image/jpeg', quality);
-        if(result.length > 500000) result = canvas.toDataURL('image/jpeg', 0.4);
-        if(result.length > 300000) result = canvas.toDataURL('image/jpeg', 0.25);
+        // Aggressively reduce until under 200KB to reliably fit in localStorage
+        if(result.length > 400000) result = canvas.toDataURL('image/jpeg', 0.4);
+        if(result.length > 250000) result = canvas.toDataURL('image/jpeg', 0.25);
+        if(result.length > 200000){
+          // Scale down further to 300px and try again
+          const scale = 300/Math.max(w,h);
+          const w2=Math.round(w*scale), h2=Math.round(h*scale);
+          const c2=document.createElement('canvas'); c2.width=w2; c2.height=h2;
+          const ctx2=c2.getContext('2d');
+          ctx2.fillStyle='#ffffff'; ctx2.fillRect(0,0,w2,h2);
+          ctx2.drawImage(img,0,0,w2,h2);
+          result=c2.toDataURL('image/jpeg',0.3);
+        }
         if(result === 'data:,') { resolve(dataUrl); return; }
         resolve(result);
       } catch(e) {
-        resolve(dataUrl); // fallback to original if compression fails
+        resolve(dataUrl);
       }
     };
-    img.onerror = ()=> resolve(dataUrl); // fallback if image can't load
+    img.onerror = ()=> resolve(dataUrl);
     img.src=dataUrl;
   });
 }
@@ -1703,10 +1713,12 @@ function clearAllData(){
 // ===== INIT =====
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-// Push two history entries so back button never exits the app
+// Push multiple history entries so back button can never exit the app
 try { history.replaceState({page:'dash'}, '', '#dash'); } catch(e) {}
 try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
-checkSharedView().then(()=>{
+try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
+try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}
+try { history.pushState({page:'dash'}, '', '#dash'); } catch(e) {}checkSharedView().then(()=>{
   if(se('main-app').style.display!=='none') renderDash();
 });
 </script>
