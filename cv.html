@@ -461,20 +461,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <div class="setting-section">
-    <div class="setting-section-title">🔗 Share Collection (JSONBin)</div>
-    <div class="setting-box">
-      <div class="setting-desc">Store your collection in the cloud to generate short share links that work in iMessage and with iPhone users.</div>
-      <div class="setting-hint">Free at <strong style="color:var(--blue)">jsonbin.io</strong> — sign up, go to API Keys, create a Master Key, paste it below.</div>
-      <div class="form-group"><label class="form-label">JSONBin Master Key</label><input class="form-input" id="jsonbin-input" type="password" placeholder="$2b$10$..."></div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button class="btn btn-primary" style="margin:0;flex:1;padding:11px" onclick="saveKey('jsonbin')">Save</button>
-        <button class="btn btn-secondary" style="margin:0;padding:11px 14px" onclick="clearKey('jsonbin')">Clear</button>
-      </div>
-      <div id="jsonbin-status"></div>
-    </div>
-  </div>
-
-  <div class="setting-section">
     <div class="setting-section-title">🛒 eBay Market Data</div>
     <div class="setting-box">
       <div class="setting-desc">eBay's API blocks direct browser requests, so live price fetching isn't available. Use the <strong style="color:var(--gold)">"Browse All Sold Listings"</strong> button inside any card's detail view to search eBay manually.</div>
@@ -1793,42 +1779,21 @@ function _sharedError(msg) {
 }
 
 async function generateShareLink(){
-  const apiKey = getKey('jsonbin');
-  if(!apiKey){
-    se('share-body').innerHTML=`<div style="padding:16px;text-align:center">
-      <div style="font-size:15px;font-weight:600;margin-bottom:8px">📡 JSONBin API Key Required</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">To generate short share links that work in iMessage, you need a free JSONBin account.</div>
-      <ol style="font-size:13px;color:var(--text2);text-align:left;padding-left:20px;margin-bottom:12px;line-height:1.8">
-        <li>Go to <strong style="color:var(--blue)">jsonbin.io</strong> and sign up free</li>
-        <li>Click your profile → <strong>API Keys</strong></li>
-        <li>Create a <strong>Master Key</strong> and copy it</li>
-        <li>Paste it in <strong>Settings → Share Collection</strong></li>
-      </ol>
-      <button class="btn btn-primary" onclick="showPage('settings');closeModal('modal-share')">Go to Settings →</button>
-    </div>`;
-    return;
-  }
   se('share-body').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Uploading collection…</div>';
   try {
     const snapshot = inventory.map(c=>({...c, cost:undefined}));
-    const res = await fetch('https://api.jsonbin.io/v3/b', {
+    const res = await fetch('https://jsonblob.com/api/jsonBlob', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': apiKey,
-        'X-Bin-Private': 'false',
-        'X-Bin-Name': 'CardVault Share'
-      },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(snapshot)
     });
-    if(!res.ok) {
-      const err = await res.json().catch(()=>({}));
-      throw new Error(err.message || 'JSONBin error '+res.status);
-    }
-    const data = await res.json();
-    const binId = data.metadata.id;
+    if(!res.ok) throw new Error('Upload failed ('+res.status+')');
+    // JSONBlob returns the blob URL in the Location header
+    const location = res.headers.get('Location') || '';
+    const blobId = location.split('/').pop();
+    if(!blobId) throw new Error('No blob ID returned');
     const base = window.location.protocol+'//'+window.location.host+window.location.pathname.replace(/\/+$/, '');
-    const shareUrl = base+'?bin='+binId;
+    const shareUrl = base+'?blob='+blobId;
     const escaped = shareUrl.replace(/'/g,"\'");
     se('share-body').innerHTML=`
       <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
@@ -1839,7 +1804,7 @@ async function generateShareLink(){
         <button class="btn" style="flex:1" onclick="if(navigator.share)navigator.share({url:'${escaped}',title:'My Card Collection'}).catch(()=>{});else navigator.clipboard.writeText('${escaped}').then(()=>toast('✅ Copied!','success'))">↑ Share</button>
       </div>`;
   } catch(e) {
-    se('share-body').innerHTML=`<div style="color:var(--red);padding:12px">Error: ${e.message}<br><small style="color:var(--muted)">Check your JSONBin API key in Settings</small></div>`;
+    se('share-body').innerHTML=`<div style="color:var(--red);padding:12px">⚠️ ${e.message}<br><small style="color:var(--muted)">Check your internet connection and try again.</small></div>`;
   }
 }
 
@@ -1850,19 +1815,20 @@ async function checkSharedView(){
     const idx = str.indexOf(key+'=');
     return idx===-1 ? null : str.slice(idx+key.length+1).split('&')[0] || null;
   }
-  const binId = getParam(search,'bin') || getParam(hash,'bin');
-  if(!binId) return false;
+  const blobId = getParam(search,'blob') || getParam(hash,'blob');
+  if(!blobId) return false;
 
   se('main-app').style.display='none';
   se('shared-view').style.display='block';
   se('shared-body').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Loading collection…</div>';
 
   try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`);
+    const res = await fetch('https://jsonblob.com/api/jsonBlob/'+blobId, {
+      headers: { 'Accept': 'application/json' }
+    });
     if(!res.ok) throw new Error('Could not load collection ('+res.status+')');
-    const data = await res.json();
-    const cards = Array.isArray(data.record) ? data.record : data;
-    _renderSharedCards(cards);
+    const cards = await res.json();
+    _renderSharedCards(Array.isArray(cards) ? cards : []);
     return true;
   } catch(e) {
     _sharedError('Could not load shared collection.<br><small style="color:var(--muted)">' + e.message + '</small>');
@@ -1883,9 +1849,9 @@ function clearAllData(){
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
 // Check for ?bin= share param FIRST before any history changes
-const _binCheck = (window.location.search+window.location.hash).indexOf('bin=') !== -1;
+const _binCheck = (window.location.search+window.location.hash).indexOf('blob=') !== -1;
 if(_binCheck) {
-  // In shared view mode — fetch from JSONBin and render, no history manipulation
+  // In shared view mode — fetch from JSONBlob and render, no history manipulation
   checkSharedView();
 } else {
   // Normal app mode — seed history stack so back button always has somewhere to go
