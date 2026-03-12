@@ -461,6 +461,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <div class="setting-section">
+    <div class="setting-section-title">🔗 Share Collection (JSONBin)</div>
+    <div class="setting-box">
+      <div class="setting-desc">Store your collection in the cloud to generate short share links that work in iMessage and with iPhone users.</div>
+      <div class="setting-hint">Free at <strong style="color:var(--blue)">jsonbin.io</strong> — sign up, go to API Keys, create a Master Key, paste it below.</div>
+      <div class="form-group"><label class="form-label">JSONBin Master Key</label><input class="form-input" id="jsonbin-input" type="password" placeholder="$2b$10$..."></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-primary" style="margin:0;flex:1;padding:11px" onclick="saveKey('jsonbin')">Save</button>
+        <button class="btn btn-secondary" style="margin:0;padding:11px 14px" onclick="clearKey('jsonbin')">Clear</button>
+      </div>
+      <div id="jsonbin-status"></div>
+    </div>
+  </div>
+
+  <div class="setting-section">
     <div class="setting-section-title">🛒 eBay Market Data</div>
     <div class="setting-box">
       <div class="setting-desc">eBay's API blocks direct browser requests, so live price fetching isn't available. Use the <strong style="color:var(--gold)">"Browse All Sold Listings"</strong> button inside any card's detail view to search eBay manually.</div>
@@ -785,7 +799,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <script>
 // ===== DATA =====
-const KEYS = { inv:'cv_inventory', sold:'cv_sold', ai:'cv_apikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey', photos:'cv_photos', backup:'cv_backup', backupSold:'cv_backup_sold' };
+const KEYS = { inv:'cv_inventory', sold:'cv_sold', ai:'cv_apikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey', jsonbin:'cv_jsonbinkey', photos:'cv_photos', backup:'cv_backup', backupSold:'cv_backup_sold' };
 let inventory = [], soldHistory = [], sportFilter = 'all', currentCardId = null, scanPhoto = null, scanParsed = {}, openPlayerName = null;
 
 function load() {
@@ -880,7 +894,7 @@ function showPage(name) {
   if(name==='sold') renderSold();
   if(name==='insights') renderInsights();
   if(name==='settings') {
-    ['ai','psa'].forEach(updateKeyStatus);
+    ['ai','psa','jsonbin'].forEach(updateKeyStatus);
     document.getElementById('s-card-count').textContent = inventory.length;
     document.getElementById('s-sold-count').textContent = soldHistory.length;
   }
@@ -1719,64 +1733,7 @@ function renderPop(popData, currentGrade){
 
 // ===== SHARE =====
 function openShareModal(){ openModal('modal-share'); }
-// ===== SHARE COMPRESSION =====
-// Compress JSON using gzip then URL-safe base64 — reduces share URLs by ~75%
-async function compressShare(jsonStr) {
-  const enc = new TextEncoder();
-  const stream = new CompressionStream('gzip');
-  const writer = stream.writable.getWriter();
-  writer.write(enc.encode(jsonStr));
-  writer.close();
-  const compressed = await new Response(stream.readable).arrayBuffer();
-  const bytes = new Uint8Array(compressed);
-  let binary = '';
-  bytes.forEach(b => binary += String.fromCharCode(b));
-  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-}
-async function decompressShare(encoded) {
-  // Restore standard base64
-  let b64 = encoded.replace(/-/g,'+').replace(/_/g,'/');
-  while(b64.length % 4) b64 += '=';
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-  const stream = new DecompressionStream('gzip');
-  const writer = stream.writable.getWriter();
-  writer.write(bytes);
-  writer.close();
-  return new Response(stream.readable).text();
-}
 
-async function generateShareLink(){
-  se('share-body').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Generating link…</div>';
-  try {
-    // Include photos — they compress well with gzip
-    const snapshot=inventory.map(c=>({...c,cost:undefined}));
-    const encoded = await compressShare(JSON.stringify(snapshot));
-    const base=window.location.protocol+'//'+window.location.host+window.location.pathname.replace(/\/+$/,'');
-    const shareUrl=base+'?share='+encoded;
-    const charCount = shareUrl.length;
-    let sizeNote, sizeColor;
-    if(charCount < 2000){ sizeNote='✅ Short enough for iMessage'; sizeColor='var(--green)'; }
-    else if(charCount < 4000){ sizeNote='⚠️ May not work in iMessage — use Copy and paste into browser'; sizeColor='var(--gold)'; }
-    else { sizeNote='❌ Too long for iMessage — paste link directly into browser address bar'; sizeColor='var(--red)'; }
-    se('share-body').innerHTML=`<div style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
-    <div style="font-size:11px;color:${sizeColor};margin-bottom:10px;font-weight:500">${charCount.toLocaleString()} chars · ${sizeNote}</div>
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);word-break:break-all;margin-bottom:12px">${shareUrl}</div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="navigator.clipboard.writeText('${shareUrl}').then(()=>toast('✅ Link copied!','success'))">📋 Copy Link</button>
-      ${typeof navigator.share!=='undefined'?`<button class="btn" style="flex:1" onclick="navigator.share({url:'${shareUrl}',title:'My Card Collection'}).catch(()=>{})">↑ Share</button>`:''}
-    </div>`;
-  } catch(e){ se('share-body').innerHTML=`<div style="color:var(--red)">Error generating link: ${e.message}</div>`; }
-}
-
-// ===== SHARED VIEW =====
-// Extract share param without URLSearchParams (which converts + to spaces)
-function _extractShareRaw(str) {
-  const idx = str.indexOf('share=');
-  if(idx === -1) return null;
-  return str.slice(idx + 6).split('&')[0] || null;
-}
 // Shared view card data — stored so modal can access it
 let _sharedCards = [];
 
@@ -1808,43 +1765,107 @@ function closeSharedModal() {
   document.body.style.overflow='';
 }
 
-async function checkSharedView(){
-  let shareData = _extractShareRaw(window.location.search);
-  if(!shareData) shareData = _extractShareRaw(window.location.hash || '');
-  if(!shareData) return false;
+function _renderSharedCards(cards) {
+  _sharedCards = cards;
+  se('main-app').style.display='none';
+  se('shared-view').style.display='block';
+  const total = cards.reduce((s,c)=>s+(c.value||0),0);
+  se('shared-body').innerHTML = `<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · ${fmt(total)} total value · <span style="color:var(--muted)">Tap a card for details</span></div>`
+    + cards.map((c,i)=>{
+      const hasPhoto = c.photo && c.photo !== '[photo]';
+      const thumb = hasPhoto
+        ? `<img src="${c.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+        : `<span style="font-size:24px">${sportEmoji(c.sport)}</span>`;
+      const meta = [c.year,safe(c.set),safe(c.variation)].filter(Boolean).join(' · ');
+      return `<div class="card-item" style="cursor:pointer" onclick="openSharedCard(${i})">
+        <div class="card-thumb" style="${hasPhoto?'padding:0;overflow:hidden;':'display:flex;align-items:center;justify-content:center;'}">${thumb}</div>
+        <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
+        <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
+        <div class="card-prices"><div class="price-val">${fmt(c.value)}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
+      </div>`;
+    }).join('');
+}
+
+function _sharedError(msg) {
+  se('main-app').style.display='none';
+  se('shared-view').style.display='block';
+  se('shared-body').innerHTML=`<div style="color:var(--red);padding:20px;text-align:center">⚠️ ${msg}</div>`;
+}
+
+async function generateShareLink(){
+  const apiKey = getKey('jsonbin');
+  if(!apiKey){
+    se('share-body').innerHTML=`<div style="padding:16px;text-align:center">
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">📡 JSONBin API Key Required</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">To generate short share links that work in iMessage, you need a free JSONBin account.</div>
+      <ol style="font-size:13px;color:var(--text2);text-align:left;padding-left:20px;margin-bottom:12px;line-height:1.8">
+        <li>Go to <strong style="color:var(--blue)">jsonbin.io</strong> and sign up free</li>
+        <li>Click your profile → <strong>API Keys</strong></li>
+        <li>Create a <strong>Master Key</strong> and copy it</li>
+        <li>Paste it in <strong>Settings → Share Collection</strong></li>
+      </ol>
+      <button class="btn btn-primary" onclick="showPage('settings');closeModal('modal-share')">Go to Settings →</button>
+    </div>`;
+    return;
+  }
+  se('share-body').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Uploading collection…</div>';
   try {
-    let jsonStr;
-    try {
-      jsonStr = await decompressShare(shareData);
-    } catch(e) {
-      // Fallback: old uncompressed format
-      let b64 = shareData.replace(/-/g,'+').replace(/_/g,'/');
-      while(b64.length % 4) b64 += '=';
-      jsonStr = decodeURIComponent(escape(atob(b64)));
+    const snapshot = inventory.map(c=>({...c, cost:undefined}));
+    const res = await fetch('https://api.jsonbin.io/v3/b', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': apiKey,
+        'X-Bin-Private': 'false',
+        'X-Bin-Name': 'CardVault Share'
+      },
+      body: JSON.stringify(snapshot)
+    });
+    if(!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.message || 'JSONBin error '+res.status);
     }
-    const cards = JSON.parse(jsonStr);
-    _sharedCards = cards;
-    se('main-app').style.display='none';
-    se('shared-view').style.display='block';
-    const total=cards.reduce((s,c)=>s+(c.value||0),0);
-    se('shared-body').innerHTML=`<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · ${fmt(total)} total value · <span style="color:var(--muted)">Tap a card for details</span></div>`
-      +cards.map((c,i)=>{
-        const hasPhoto = c.photo && c.photo !== '[photo]';
-        const thumb = hasPhoto ? `<img src="${c.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:24px">${sportEmoji(c.sport)}</span>`;
-        const meta=[c.year,safe(c.set),safe(c.variation)].filter(Boolean).join(' · ');
-        return `<div class="card-item" style="cursor:pointer" onclick="openSharedCard(${i})">
-          <div class="card-thumb" style="${hasPhoto?'padding:0;overflow:hidden;':'display:flex;align-items:center;justify-content:center;'}">${thumb}</div>
-          <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
-          <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
-          <div class="card-prices"><div class="price-val">${fmt(c.value)}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
-        </div>`;
-      }).join('');
+    const data = await res.json();
+    const binId = data.metadata.id;
+    const base = window.location.protocol+'//'+window.location.host+window.location.pathname.replace(/\/+$/, '');
+    const shareUrl = base+'?bin='+binId;
+    const escaped = shareUrl.replace(/'/g,"\'");
+    se('share-body').innerHTML=`
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
+      <div style="font-size:11px;color:var(--green);margin-bottom:10px;font-weight:500">✅ ${shareUrl.length} chars — works in iMessage</div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);word-break:break-all;margin-bottom:12px">${shareUrl}</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1" onclick="navigator.clipboard.writeText('${escaped}').then(()=>toast('✅ Link copied!','success'))">📋 Copy Link</button>
+        <button class="btn" style="flex:1" onclick="if(navigator.share)navigator.share({url:'${escaped}',title:'My Card Collection'}).catch(()=>{});else navigator.clipboard.writeText('${escaped}').then(()=>toast('✅ Copied!','success'))">↑ Share</button>
+      </div>`;
+  } catch(e) {
+    se('share-body').innerHTML=`<div style="color:var(--red);padding:12px">Error: ${e.message}<br><small style="color:var(--muted)">Check your JSONBin API key in Settings</small></div>`;
+  }
+}
+
+async function checkSharedView(){
+  const search = window.location.search;
+  const hash = window.location.hash || '';
+  function getParam(str, key) {
+    const idx = str.indexOf(key+'=');
+    return idx===-1 ? null : str.slice(idx+key.length+1).split('&')[0] || null;
+  }
+  const binId = getParam(search,'bin') || getParam(hash,'bin');
+  if(!binId) return false;
+
+  se('main-app').style.display='none';
+  se('shared-view').style.display='block';
+  se('shared-body').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Loading collection…</div>';
+
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`);
+    if(!res.ok) throw new Error('Could not load collection ('+res.status+')');
+    const data = await res.json();
+    const cards = Array.isArray(data.record) ? data.record : data;
+    _renderSharedCards(cards);
     return true;
-  } catch(e){
-    console.log('Share parse error', e);
-    se('main-app').style.display='none';
-    se('shared-view').style.display='block';
-    se('shared-body').innerHTML='<div style="color:var(--red);padding:20px;text-align:center">⚠️ Could not load shared collection.<br><small style="color:var(--muted)">The link may be corrupted or outdated. Ask the sender to generate a new link.</small></div>';
+  } catch(e) {
+    _sharedError('Could not load shared collection.<br><small style="color:var(--muted)">' + e.message + '</small>');
     return false;
   }
 }
@@ -1861,13 +1882,11 @@ function clearAllData(){
 // ===== INIT =====
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-// Check share param FIRST before any history changes — check both query string and hash
-// Don't use URLSearchParams on hash — it converts + to spaces and breaks base64
-// _extractShareRaw defined above near checkSharedView
-const _shareCheck = _extractShareRaw(window.location.search) || _extractShareRaw(window.location.hash||'');
-if(_shareCheck) {
-  // In shared view mode — don't touch history at all, just render the shared view
-  checkSharedView(); // async — runs in background, no history manipulation needed
+// Check for ?bin= share param FIRST before any history changes
+const _binCheck = (window.location.search+window.location.hash).indexOf('bin=') !== -1;
+if(_binCheck) {
+  // In shared view mode — fetch from JSONBin and render, no history manipulation
+  checkSharedView();
 } else {
   // Normal app mode — seed history stack so back button always has somewhere to go
   try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
