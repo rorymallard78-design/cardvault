@@ -1737,13 +1737,15 @@ async function generateShareLink(){
 
 // ===== SHARED VIEW =====
 function checkSharedView(){
-  // Check query string first, then fall back to hash in case URL was malformed (e.g. ?share= ended up after #hash)
-  let shareData = new URLSearchParams(window.location.search).get('share');
-  if(!shareData) {
-    const hashStr = window.location.hash || '';
-    const qIdx = hashStr.indexOf('?');
-    if(qIdx !== -1) shareData = new URLSearchParams(hashStr.slice(qIdx)).get('share');
+  // Extract share param safely — never use URLSearchParams on hash data because it converts + to spaces, breaking base64
+  function _extractShare(str) {
+    const idx = str.indexOf('share=');
+    if(idx === -1) return null;
+    const val = str.slice(idx + 6).split('&')[0];
+    return val || null;
   }
+  let shareData = _extractShare(window.location.search);
+  if(!shareData) shareData = _extractShare(window.location.hash || '');
   if(!shareData) return false;
   try {
     const cards=JSON.parse(b64decode(shareData));
@@ -1777,9 +1779,9 @@ function clearAllData(){
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
 // Check share param FIRST before any history changes — check both query string and hash
-const _shareCheckQ = new URLSearchParams(window.location.search).get('share');
-const _shareCheckH = (()=>{ const h=window.location.hash||''; const q=h.indexOf('?'); return q!==-1?new URLSearchParams(h.slice(q)).get('share'):null; })();
-const _shareCheck = _shareCheckQ || _shareCheckH;
+// Don't use URLSearchParams on hash — it converts + to spaces and breaks base64
+function _extractShareParam(str) { const i=str.indexOf('share='); return i===-1?null:str.slice(i+6).split('&')[0]||null; }
+const _shareCheck = _extractShareParam(window.location.search) || _extractShareParam(window.location.hash||'');
 if(_shareCheck) {
   // In shared view mode — don't touch history at all, just render the shared view
   checkSharedView();
