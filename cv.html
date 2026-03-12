@@ -1711,25 +1711,37 @@ function renderPop(popData, currentGrade){
 
 // ===== SHARE =====
 function openShareModal(){ openModal('modal-share'); }
+// URL-safe base64 encode/decode — avoids + / = chars that break URLs and get mangled by iMessage
+function b64encode(str) {
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+function b64decode(str) {
+  str = str.replace(/-/g,'+').replace(/_/g,'/');
+  while(str.length % 4) str += '=';
+  return decodeURIComponent(escape(atob(str)));
+}
 async function generateShareLink(){
   se('share-body').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Generating link…</div>';
   try {
     const snapshot=inventory.map(c=>({...c,cost:undefined,photo:c.photo?'[photo]':null}));
-    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(snapshot))));
-    const shareUrl=window.location.href.split('?')[0]+'?share='+encoded;
+    const encoded=b64encode(JSON.stringify(snapshot));
+    // Always use the clean hosted URL — strip hash and query string
+    const base=window.location.origin+window.location.pathname;
+    const shareUrl=base+'?share='+encoded;
     se('share-body').innerHTML=`<div style="font-size:13px;color:var(--text2);margin-bottom:12px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);word-break:break-all;margin-bottom:12px">${shareUrl}</div>
     <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${shareUrl}').then(()=>toast('✅ Link copied!','success'))">📋 Copy Link</button>`;
-  } catch(e){ se('share-body').innerHTML=`<div style="color:var(--red)">Error generating link</div>`; }
+  } catch(e){ se('share-body').innerHTML=`<div style="color:var(--red)">Error generating link: ${e.message}</div>`; }
 }
 
 // ===== SHARED VIEW =====
-async function checkSharedView(){
+function checkSharedView(){
   const params=new URLSearchParams(window.location.search);
   const shareData=params.get('share');
-  if(!shareData) return;
+  if(!shareData) return false;
   try {
-    const cards=JSON.parse(decodeURIComponent(escape(atob(shareData))));
+    const cards=JSON.parse(b64decode(shareData));
     se('main-app').style.display='none';
     se('shared-view').style.display='block';
     const total=cards.reduce((s,c)=>s+(c.value||0),0);
@@ -1743,7 +1755,8 @@ async function checkSharedView(){
         <div class="card-prices"><div class="price-val">${fmt(c.value)}</div></div>
       </div>`;
     }).join('');
-  } catch(e){ console.log('Share parse error',e); }
+    return true;
+  } catch(e){ console.log('Share parse error',e); return false; }
 }
 
 // ===== CLEAR DATA =====
@@ -1758,12 +1771,17 @@ function clearAllData(){
 // ===== INIT =====
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-// Seed history stack so back button always has somewhere to go
-try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
-_pushStay(); _pushStay(); _pushStay();
-checkSharedView().then(()=>{
-  if(se('main-app').style.display!=='none') renderDash();
-});
+// Check share param FIRST before any history changes — history rewriting strips the query string
+const _shareCheck = new URLSearchParams(window.location.search).get('share');
+if(_shareCheck) {
+  // In shared view mode — don't touch history at all, just render the shared view
+  checkSharedView();
+} else {
+  // Normal app mode — seed history stack so back button always has somewhere to go
+  try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
+  _pushStay(); _pushStay(); _pushStay();
+  renderDash();
+}
 </script>
 </body>
 </html>
