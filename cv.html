@@ -1711,44 +1711,74 @@ function renderPop(popData, currentGrade){
 
 // ===== SHARE =====
 function openShareModal(){ openModal('modal-share'); }
-// URL-safe base64 encode/decode — avoids + / = chars that break URLs and get mangled by iMessage
-function b64encode(str) {
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+// ===== SHARE COMPRESSION =====
+// Compress JSON using gzip then URL-safe base64 — reduces share URLs by ~75%
+async function compressShare(jsonStr) {
+  const enc = new TextEncoder();
+  const stream = new CompressionStream('gzip');
+  const writer = stream.writable.getWriter();
+  writer.write(enc.encode(jsonStr));
+  writer.close();
+  const compressed = await new Response(stream.readable).arrayBuffer();
+  const bytes = new Uint8Array(compressed);
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 }
-function b64decode(str) {
-  str = str.replace(/-/g,'+').replace(/_/g,'/');
-  while(str.length % 4) str += '=';
-  return decodeURIComponent(escape(atob(str)));
+async function decompressShare(encoded) {
+  // Restore standard base64
+  let b64 = encoded.replace(/-/g,'+').replace(/_/g,'/');
+  while(b64.length % 4) b64 += '=';
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+  const stream = new DecompressionStream('gzip');
+  const writer = stream.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  return new Response(stream.readable).text();
 }
+
 async function generateShareLink(){
   se('share-body').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Generating link…</div>';
   try {
     const snapshot=inventory.map(c=>({...c,cost:undefined,photo:c.photo?'[photo]':null}));
-    const encoded=b64encode(JSON.stringify(snapshot));
-    // Build clean URL — strip ALL hash and query params so #modal-share etc never pollute the share link
+    const encoded = await compressShare(JSON.stringify(snapshot));
+    // Build clean URL — strip ALL hash and query params
     const base=window.location.protocol+'//'+window.location.host+window.location.pathname.replace(/\/+$/,'');
     const shareUrl=base+'?share='+encoded;
-    se('share-body').innerHTML=`<div style="font-size:13px;color:var(--text2);margin-bottom:12px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
+    const charCount = shareUrl.length;
+    const sizeNote = charCount < 2000 ? '✅ Short enough for iMessage' : '⚠️ Long link — use Copy and paste manually';
+    se('share-body').innerHTML=`<div style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${charCount} characters · ${sizeNote}</div>
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);word-break:break-all;margin-bottom:12px">${shareUrl}</div>
     <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${shareUrl}').then(()=>toast('✅ Link copied!','success'))">📋 Copy Link</button>`;
   } catch(e){ se('share-body').innerHTML=`<div style="color:var(--red)">Error generating link: ${e.message}</div>`; }
 }
 
 // ===== SHARED VIEW =====
-function checkSharedView(){
-  // Extract share param safely — never use URLSearchParams on hash data because it converts + to spaces, breaking base64
-  function _extractShare(str) {
-    const idx = str.indexOf('share=');
-    if(idx === -1) return null;
-    const val = str.slice(idx + 6).split('&')[0];
-    return val || null;
-  }
-  let shareData = _extractShare(window.location.search);
-  if(!shareData) shareData = _extractShare(window.location.hash || '');
+// Extract share param without URLSearchParams (which converts + to spaces)
+function _extractShareRaw(str) {
+  const idx = str.indexOf('share=');
+  if(idx === -1) return null;
+  return str.slice(idx + 6).split('&')[0] || null;
+}
+async function checkSharedView(){
+  let shareData = _extractShareRaw(window.location.search);
+  if(!shareData) shareData = _extractShareRaw(window.location.hash || '');
   if(!shareData) return false;
   try {
-    const cards=JSON.parse(b64decode(shareData));
+    // Try compressed decode first, fall back to plain base64 for old links
+    let jsonStr;
+    try {
+      jsonStr = await decompressShare(shareData);
+    } catch(e) {
+      // Fallback: old uncompressed format
+      let b64 = shareData.replace(/-/g,'+').replace(/_/g,'/');
+      while(b64.length % 4) b64 += '=';
+      jsonStr = decodeURIComponent(escape(atob(b64)));
+    }
+    const cards = JSON.parse(jsonStr);
     se('main-app').style.display='none';
     se('shared-view').style.display='block';
     const total=cards.reduce((s,c)=>s+(c.value||0),0);
@@ -1763,7 +1793,13 @@ function checkSharedView(){
       </div>`;
     }).join('');
     return true;
-  } catch(e){ console.log('Share parse error',e); return false; }
+  } catch(e){
+    console.log('Share parse error', e);
+    se('main-app').style.display='none';
+    se('shared-view').style.display='block';
+    se('shared-body').innerHTML='<div style="color:var(--red);padding:20px;text-align:center">⚠️ Could not load shared collection.<br><small style="color:var(--muted)">The link may be corrupted or outdated. Ask the sender to generate a new link.</small></div>';
+    return false;
+  }
 }
 
 // ===== CLEAR DATA =====
@@ -1780,11 +1816,11 @@ load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
 // Check share param FIRST before any history changes — check both query string and hash
 // Don't use URLSearchParams on hash — it converts + to spaces and breaks base64
-function _extractShareParam(str) { const i=str.indexOf('share='); return i===-1?null:str.slice(i+6).split('&')[0]||null; }
-const _shareCheck = _extractShareParam(window.location.search) || _extractShareParam(window.location.hash||'');
+// _extractShareRaw defined above near checkSharedView
+const _shareCheck = _extractShareRaw(window.location.search) || _extractShareRaw(window.location.hash||'');
 if(_shareCheck) {
   // In shared view mode — don't touch history at all, just render the shared view
-  checkSharedView();
+  checkSharedView(); // async — runs in background, no history manipulation needed
 } else {
   // Normal app mode — seed history stack so back button always has somewhere to go
   try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
