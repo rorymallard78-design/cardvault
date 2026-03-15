@@ -485,8 +485,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="setting-section">
     <div class="setting-section-title">🔗 Share Collection</div>
     <div class="setting-box">
-      <div class="setting-desc">Generate a read-only link to share your collection. Purchase prices are hidden.</div>
-      <button class="btn btn-secondary" style="margin:0" onclick="openShareModal()">🔗 Generate Share Link</button>
+      <div class="setting-desc">Generate a shareable file of your collection — no accounts or setup required. Tap Share in the share modal to send via iMessage, AirDrop, or any app.</div>
     </div>
   </div>
 
@@ -785,7 +784,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <script>
 // ===== DATA =====
-const KEYS = { inv:'cv_inventory', sold:'cv_sold', ai:'cv_apikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey', jsonbin:'cv_jsonbinkey', photos:'cv_photos', backup:'cv_backup', backupSold:'cv_backup_sold' };
+const KEYS = { inv:'cv_inventory', sold:'cv_sold', ai:'cv_apikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey', gist:'cv_gisttoken', photos:'cv_photos', backup:'cv_backup', backupSold:'cv_backup_sold' };
 let inventory = [], soldHistory = [], sportFilter = 'all', currentCardId = null, scanPhoto = null, scanParsed = {}, openPlayerName = null;
 
 function load() {
@@ -880,7 +879,7 @@ function showPage(name) {
   if(name==='sold') renderSold();
   if(name==='insights') renderInsights();
   if(name==='settings') {
-    ['ai','psa','jsonbin'].forEach(updateKeyStatus);
+    ['ai','psa'].forEach(updateKeyStatus);
     document.getElementById('s-card-count').textContent = inventory.length;
     document.getElementById('s-sold-count').textContent = soldHistory.length;
   }
@@ -1778,63 +1777,75 @@ function _sharedError(msg) {
   se('shared-body').innerHTML=`<div style="color:var(--red);padding:20px;text-align:center">⚠️ ${msg}</div>`;
 }
 
+function _buildShareHTML(cards) {
+  const total = cards.reduce((s,c)=>s+(c.value||0),0);
+  const rows = cards.map(c => {
+    const hasPhoto = c.photo && c.photo !== '[photo]';
+    const thumb = hasPhoto
+      ? `<img src="${c.photo}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
+      : `<div style="width:56px;height:56px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${c.sport==='Baseball'?'⚾':c.sport==='Basketball'?'🏀':c.sport==='Football'?'🏈':c.sport==='Hockey'?'🏒':'🃏'}</div>`;
+    const meta = [c.year,c.set,c.variation].filter(Boolean).join(' · ');
+    const badge = c.grade ? `<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.grade}</span>`
+      : `<span style="background:#1e293b;color:#94a3b8;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.condition||''}</span>`;
+    const pr = c.printRun ? `<span style="background:#1e293b;color:#f59e0b;font-size:10px;padding:2px 6px;border-radius:4px">/${c.printRun}</span>` : '';
+    const val = c.value ? `<div style="font-size:15px;font-weight:700;color:#f59e0b">$${c.value.toLocaleString()}</div>` : '';
+    const photoFull = hasPhoto ? `<div style="display:none" class="photo-full"><img src="${c.photo}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin-top:8px;"></div>` : '';
+    const notesHtml = c.notes ? `<div style="font-size:12px;color:#64748b;margin-top:4px">${c.notes}</div>` : '';
+    return `<div onclick="var p=this.querySelector('.photo-full');if(p)p.style.display=p.style.display==='block'?'none':'block'" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:2px">${c.player||''}</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta}</div>
+        <div>${badge}${pr}</div>
+        ${notesHtml}
+        ${photoFull}
+      </div>
+      ${val}
+    </div>`;
+  }).join('');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CardVault Collection</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#020817;font-family:-apple-system,sans-serif;padding:16px;min-height:100vh}</style>
+</head><body>
+<div style="background:linear-gradient(160deg,#0e0e20,#080810);padding:16px;border-radius:12px;margin-bottom:16px;border:1px solid #1e293b">
+  <div style="font-size:28px;font-weight:900;letter-spacing:3px;color:#f1f5f9">CARD<span style="color:#f59e0b">VAULT</span></div>
+  <div style="font-size:12px;color:#64748b;margin-top:4px">👁 Read-only · ${cards.length} cards · $${total.toLocaleString()} total · Tap a card to expand photo</div>
+</div>
+${rows}
+</body></html>`;
+}
+
 async function generateShareLink(){
-  se('share-body').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Uploading collection…</div>';
+  se('share-body').innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)">Building collection file…</div>';
   try {
     const snapshot = inventory.map(c=>({...c, cost:undefined}));
-    const res = await fetch('https://jsonblob.com/api/jsonBlob', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(snapshot)
-    });
-    if(!res.ok) throw new Error('Upload failed ('+res.status+')');
-    // JSONBlob returns the blob URL in the Location header
-    const location = res.headers.get('Location') || '';
-    const blobId = location.split('/').pop();
-    if(!blobId) throw new Error('No blob ID returned');
-    const base = window.location.protocol+'//'+window.location.host+window.location.pathname.replace(/\/+$/, '');
-    const shareUrl = base+'?blob='+blobId;
-    const escaped = shareUrl.replace(/'/g,"\'");
-    se('share-body').innerHTML=`
-      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Share this link — viewers can browse but not edit. Purchase prices are hidden.</div>
-      <div style="font-size:11px;color:var(--green);margin-bottom:10px;font-weight:500">✅ ${shareUrl.length} chars — works in iMessage</div>
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);word-break:break-all;margin-bottom:12px">${shareUrl}</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-primary" style="flex:1" onclick="navigator.clipboard.writeText('${escaped}').then(()=>toast('✅ Link copied!','success'))">📋 Copy Link</button>
-        <button class="btn" style="flex:1" onclick="if(navigator.share)navigator.share({url:'${escaped}',title:'My Card Collection'}).catch(()=>{});else navigator.clipboard.writeText('${escaped}').then(()=>toast('✅ Copied!','success'))">↑ Share</button>
-      </div>`;
+    const html = _buildShareHTML(snapshot);
+    const blob = new Blob([html], {type:'text/html'});
+    const file = new File([blob], 'my-cardvault.html', {type:'text/html'});
+    const fileSizeMB = (blob.size/1024/1024).toFixed(1);
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      se('share-body').innerHTML=`
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Tap <strong>Share File</strong> to send your collection via iMessage, AirDrop, or any app. The recipient opens it in their browser — no app needed.</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">📁 ${fileSizeMB} MB · includes all cards and photos · tap any card to expand</div>
+        <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px" onclick="
+          const b=new Blob([${JSON.stringify(html)}],{type:'text/html'});
+          const f=new File([b],'my-cardvault.html',{type:'text/html'});
+          navigator.share({files:[f],title:'My CardVault Collection'}).catch(()=>{});
+        ">↑ Share File</button>`;
+    } else {
+      // Fallback: download the file
+      const url = URL.createObjectURL(blob);
+      se('share-body').innerHTML=`
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Download your collection as an HTML file, then send it via iMessage or email. The recipient opens it in their browser.</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">📁 ${fileSizeMB} MB · includes all cards and photos</div>
+        <a href="${url}" download="my-cardvault.html" class="btn btn-primary" style="display:block;text-align:center;padding:14px;font-size:15px;text-decoration:none">⬇️ Download Collection File</a>`;
+    }
   } catch(e) {
-    se('share-body').innerHTML=`<div style="color:var(--red);padding:12px">⚠️ ${e.message}<br><small style="color:var(--muted)">Check your internet connection and try again.</small></div>`;
+    se('share-body').innerHTML=`<div style="color:var(--red);padding:12px">⚠️ ${e.message}</div>`;
   }
 }
 
-async function checkSharedView(){
-  const search = window.location.search;
-  const hash = window.location.hash || '';
-  function getParam(str, key) {
-    const idx = str.indexOf(key+'=');
-    return idx===-1 ? null : str.slice(idx+key.length+1).split('&')[0] || null;
-  }
-  const blobId = getParam(search,'blob') || getParam(hash,'blob');
-  if(!blobId) return false;
-
-  se('main-app').style.display='none';
-  se('shared-view').style.display='block';
-  se('shared-body').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">Loading collection…</div>';
-
-  try {
-    const res = await fetch('https://jsonblob.com/api/jsonBlob/'+blobId, {
-      headers: { 'Accept': 'application/json' }
-    });
-    if(!res.ok) throw new Error('Could not load collection ('+res.status+')');
-    const cards = await res.json();
-    _renderSharedCards(Array.isArray(cards) ? cards : []);
-    return true;
-  } catch(e) {
-    _sharedError('Could not load shared collection.<br><small style="color:var(--muted)">' + e.message + '</small>');
-    return false;
-  }
-}
+function checkSharedView(){ return false; }
 
 // ===== CLEAR DATA =====
 function clearAllData(){
@@ -1849,9 +1860,8 @@ function clearAllData(){
 load();
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
 // Check for ?bin= share param FIRST before any history changes
-const _binCheck = (window.location.search+window.location.hash).indexOf('blob=') !== -1;
+const _binCheck = false; // share is now file-based, no URL params to check
 if(_binCheck) {
-  // In shared view mode — fetch from JSONBlob and render, no history manipulation
   checkSharedView();
 } else {
   // Normal app mode — seed history stack so back button always has somewhere to go
