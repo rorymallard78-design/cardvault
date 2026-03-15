@@ -1778,28 +1778,60 @@ function _sharedError(msg) {
   se('shared-body').innerHTML=`<div style="color:var(--red);padding:20px;text-align:center">⚠️ ${msg}</div>`;
 }
 
+// Compress a photo to target size (bytes) for sharing
+async function _compressForShare(dataUrl, targetBytes) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      // Scale down to max 400px
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if(w > MAX || h > MAX) {
+        if(w > h) { h = Math.round(h * MAX/w); w = MAX; }
+        else { w = Math.round(w * MAX/h); h = MAX; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      // Try progressively lower quality
+      const qualities = [0.5, 0.35, 0.2, 0.1];
+      let result = canvas.toDataURL('image/jpeg', 0.5);
+      for(const q of qualities) {
+        const attempt = canvas.toDataURL('image/jpeg', q);
+        result = attempt;
+        if(attempt.length * 0.75 <= targetBytes) break;
+      }
+      resolve(result);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 function _buildShareHTML(cards) {
   const total = cards.reduce((s,c)=>s+(c.value||0),0);
+  const sportIcon = s => s==='Baseball'?'⚾':s==='Basketball'?'🏀':s==='Football'?'🏈':s==='Hockey'?'🏒':'🃏';
   const rows = cards.map(c => {
     const hasPhoto = c.photo && c.photo !== '[photo]';
     const thumb = hasPhoto
       ? `<img src="${c.photo}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
-      : `<div style="width:56px;height:56px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${c.sport==='Baseball'?'⚾':c.sport==='Basketball'?'🏀':c.sport==='Football'?'🏈':c.sport==='Hockey'?'🏒':'🃏'}</div>`;
+      : `<div style="width:56px;height:56px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${sportIcon(c.sport)}</div>`;
     const meta = [c.year,c.set,c.variation].filter(Boolean).join(' · ');
-    const badge = c.grade ? `<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.grade}</span>`
+    const badge = c.grade
+      ? `<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.grade}</span>`
       : `<span style="background:#1e293b;color:#94a3b8;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.condition||''}</span>`;
     const pr = c.printRun ? `<span style="background:#1e293b;color:#f59e0b;font-size:10px;padding:2px 6px;border-radius:4px">/${c.printRun}</span>` : '';
     const val = c.value ? `<div style="font-size:15px;font-weight:700;color:#f59e0b">$${c.value.toLocaleString()}</div>` : '';
-    const photoFull = hasPhoto ? `<div style="display:none" class="photo-full"><img src="${c.photo}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin-top:8px;"></div>` : '';
+    const photoFull = hasPhoto ? `<div id="pf${c.id}" style="display:none"><img src="${c.photo}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin-top:8px;"></div>` : '';
     const notesHtml = c.notes ? `<div style="font-size:12px;color:#64748b;margin-top:4px">${c.notes}</div>` : '';
-    return `<div onclick="var p=this.querySelector('.photo-full');if(p)p.style.display=p.style.display==='block'?'none':'block'" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
+    const tapHint = hasPhoto ? `<div style="font-size:10px;color:#334155;margin-top:4px">tap to expand photo</div>` : '';
+    return `<div onclick="var d=document.getElementById('pf${c.id}');if(d)d.style.display=d.style.display==='block'?'none':'block'" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
       ${thumb}
       <div style="flex:1;min-width:0">
         <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:2px">${c.player||''}</div>
-        <div style="font-size:11px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${meta}</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${meta}</div>
         <div>${badge}${pr}</div>
-        ${notesHtml}
-        ${photoFull}
+        ${notesHtml}${tapHint}${photoFull}
       </div>
       ${val}
     </div>`;
@@ -1810,29 +1842,35 @@ function _buildShareHTML(cards) {
 </head><body>
 <div style="background:linear-gradient(160deg,#0e0e20,#080810);padding:16px;border-radius:12px;margin-bottom:16px;border:1px solid #1e293b">
   <div style="font-size:28px;font-weight:900;letter-spacing:3px;color:#f1f5f9">CARD<span style="color:#f59e0b">VAULT</span></div>
-  <div style="font-size:12px;color:#64748b;margin-top:4px">👁 Read-only · ${cards.length} cards · $${total.toLocaleString()} total · Tap a card to expand photo</div>
+  <div style="font-size:12px;color:#64748b;margin-top:4px">👁 Read-only · ${cards.length} cards · $${total.toLocaleString()} total</div>
 </div>
 ${rows}
 </body></html>`;
 }
 
 async function generateShareLink(){
-  se('share-body').innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)">Building collection file…</div>';
+  se('share-body').innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)">Compressing photos…<br><small style="color:var(--muted)">This takes a few seconds</small></div>';
   try {
-    const snapshot = inventory.map(c=>({...c, cost:undefined}));
+    // Compress photos aggressively for sharing — target 40KB each
+    const TARGET = 40 * 1024;
+    const snapshot = await Promise.all(inventory.map(async c => {
+      const card = {...c, cost:undefined};
+      if(card.photo && card.photo.startsWith('data:') && card.photo.length * 0.75 > TARGET) {
+        card.photo = await _compressForShare(card.photo, TARGET);
+      }
+      return card;
+    }));
+
     const html = _buildShareHTML(snapshot);
     const blob = new Blob([html], {type:'text/html'});
     const fileSizeMB = (blob.size/1024/1024).toFixed(1);
-    const objUrl = URL.createObjectURL(blob);
-
-    // Store html string on window so onclick can access it without JSON.stringify bloating the DOM
-    window._shareHtml = html;
+    window._cvShareBlob = blob;
 
     se('share-body').innerHTML=`
-      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Your collection is ready. Tap <strong style="color:var(--gold)">Share File</strong> to send via iMessage, AirDrop, or any app.</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">📁 ${fileSizeMB} MB · includes all cards and photos · recipient opens in browser</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Your collection is ready — <strong>${snapshot.length} cards</strong> with photos included.</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">📁 ${fileSizeMB} MB · recipient opens file in their browser, no app needed</div>
       <button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;margin-bottom:10px" onclick="doShareFile()">↑ Share File</button>
-      <a id="cv-dl-link" href="${objUrl}" download="my-cardvault.html" class="btn" style="display:block;text-align:center;padding:12px;font-size:14px;text-decoration:none">⬇️ Save to Files instead</a>`;
+      <a id="cv-dl-link" href="${URL.createObjectURL(blob)}" download="my-cardvault.html" class="btn" style="display:block;text-align:center;padding:12px;font-size:14px;text-decoration:none">⬇️ Save to Files / Downloads</a>`;
   } catch(e) {
     se('share-body').innerHTML=`<div style="color:var(--red);padding:12px">⚠️ ${e.message}</div>`;
   }
@@ -1840,19 +1878,21 @@ async function generateShareLink(){
 
 async function doShareFile(){
   try {
-    const blob = new Blob([window._shareHtml||''], {type:'text/html'});
+    const blob = window._cvShareBlob;
+    if(!blob) return;
     const file = new File([blob], 'my-cardvault.html', {type:'text/html'});
-    if(navigator.share){
+    if(navigator.share && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title:'My CardVault Collection'});
+    } else if(navigator.share) {
+      // Some browsers support share but not files — share as text with download link
+      const url = URL.createObjectURL(blob);
+      await navigator.share({url, title:'My CardVault Collection'});
     } else {
-      // Desktop fallback — trigger the download link
       document.getElementById('cv-dl-link').click();
     }
   } catch(e){
     if(e.name !== 'AbortError'){
-      // Share failed — fall back to download
-      const a = document.getElementById('cv-dl-link');
-      if(a) a.click();
+      toast('Use the Save button below to download the file','');
     }
   }
 }
