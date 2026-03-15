@@ -1821,27 +1821,38 @@ async function generateShareLink(){
     const snapshot = inventory.map(c=>({...c, cost:undefined}));
     const html = _buildShareHTML(snapshot);
     const blob = new Blob([html], {type:'text/html'});
-    const file = new File([blob], 'my-cardvault.html', {type:'text/html'});
     const fileSizeMB = (blob.size/1024/1024).toFixed(1);
-    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-      se('share-body').innerHTML=`
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Tap <strong>Share File</strong> to send your collection via iMessage, AirDrop, or any app. The recipient opens it in their browser — no app needed.</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">📁 ${fileSizeMB} MB · includes all cards and photos · tap any card to expand</div>
-        <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px" onclick="
-          const b=new Blob([${JSON.stringify(html)}],{type:'text/html'});
-          const f=new File([b],'my-cardvault.html',{type:'text/html'});
-          navigator.share({files:[f],title:'My CardVault Collection'}).catch(()=>{});
-        ">↑ Share File</button>`;
-    } else {
-      // Fallback: download the file
-      const url = URL.createObjectURL(blob);
-      se('share-body').innerHTML=`
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Download your collection as an HTML file, then send it via iMessage or email. The recipient opens it in their browser.</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">📁 ${fileSizeMB} MB · includes all cards and photos</div>
-        <a href="${url}" download="my-cardvault.html" class="btn btn-primary" style="display:block;text-align:center;padding:14px;font-size:15px;text-decoration:none">⬇️ Download Collection File</a>`;
-    }
+    const objUrl = URL.createObjectURL(blob);
+
+    // Store html string on window so onclick can access it without JSON.stringify bloating the DOM
+    window._shareHtml = html;
+
+    se('share-body').innerHTML=`
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Your collection is ready. Tap <strong style="color:var(--gold)">Share File</strong> to send via iMessage, AirDrop, or any app.</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">📁 ${fileSizeMB} MB · includes all cards and photos · recipient opens in browser</div>
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;margin-bottom:10px" onclick="doShareFile()">↑ Share File</button>
+      <a id="cv-dl-link" href="${objUrl}" download="my-cardvault.html" class="btn" style="display:block;text-align:center;padding:12px;font-size:14px;text-decoration:none">⬇️ Save to Files instead</a>`;
   } catch(e) {
     se('share-body').innerHTML=`<div style="color:var(--red);padding:12px">⚠️ ${e.message}</div>`;
+  }
+}
+
+async function doShareFile(){
+  try {
+    const blob = new Blob([window._shareHtml||''], {type:'text/html'});
+    const file = new File([blob], 'my-cardvault.html', {type:'text/html'});
+    if(navigator.share){
+      await navigator.share({files:[file], title:'My CardVault Collection'});
+    } else {
+      // Desktop fallback — trigger the download link
+      document.getElementById('cv-dl-link').click();
+    }
+  } catch(e){
+    if(e.name !== 'AbortError'){
+      // Share failed — fall back to download
+      const a = document.getElementById('cv-dl-link');
+      if(a) a.click();
+    }
   }
 }
 
