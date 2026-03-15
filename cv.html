@@ -1082,9 +1082,12 @@ function renderDetail(card){
     <div class="market-panel">
       <div class="market-head">
         <div class="market-title">🛒 eBay Sold Comps</div>
+        ${getKey('ai')
+          ? `<button class="market-fetch-btn" id="comps-btn" onclick="fetchEbayComps(${id})">Fetch Comps</button>`
+          : `<button class="market-fetch-btn" style="background:var(--bg4);color:var(--muted);border-color:var(--border)" onclick="closeModal('modal-detail');showPage('settings')">Add AI Key →</button>`}
       </div>
-      <div class="market-body">
-        <div class="market-empty" style="font-size:12px;color:var(--text2);line-height:1.6">eBay's API blocks direct browser access.<br>Use the button below to browse sold listings.</div>
+      <div class="market-body" id="comps-body">
+        <div class="market-empty">${getKey('ai') ? 'Tap "Fetch Comps" to pull recent eBay sales' : 'Add your Anthropic key in Settings to enable comps'}</div>
       </div>
     </div>
 
@@ -1608,18 +1611,133 @@ function renderInsights(){
 
 // ===== EBAY =====
 
+function _cardLabel(card) {
+  return [card.year, card.set, card.variation, card.grade||card.condition, card.printRun?'/'+card.printRun:'']
+    .filter(Boolean).join(' ');
+}
+
+async function _claudeSearch(apiKey, userMsg, maxTokens) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTokens,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+  if(!resp.ok) throw new Error('API error ' + resp.status);
+  return resp.json();
+}
+
+async function fetchEbayComps(cardId) {
+  const card = inventory.find(c => c.id === cardId); if(!card) return;
+  const apiKey = getKey('ai'); if(!apiKey) return;
+  const btn = se('comps-btn'); const body = se('comps-body');
+  if(btn){ btn.textContent='Searching…'; btn.style.opacity='0.6'; btn.style.pointerEvents='none'; }
+  body.innerHTML='<div class="market-empty">Searching eBay sold listings…</div>';
+
+  const label = _cardLabel(card);
+  const today = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  const prompt = `Today is ${today}. Search eBay completed/sold listings for this sports card:
+
+CARD: ${card.player} | ${label} | Sport: ${card.sport}
+
+Search for the most recent sold listings. Find up to 6 sales. Then apply this CardLadder-style valuation methodology:
+
+1. RECENCY WEIGHT: Sales in last 14 days = weight 1.0, 15-30 days = 0.75, 31-60 days = 0.5, 60+ days = 0.25
+2. OUTLIER REMOVAL: Flag and exclude any sale >2.5x or <0.3x the median price
+3. TREND DIRECTION: Compare oldest to newest sales — is price trending up, down, or flat?
+4. WEIGHTED MARKET VALUE: Calculate weighted average using recency weights (not a simple average)
+5. POP ADJUSTMENT NOTE: If this is a numbered card (/25 or less), note it may command a premium
+
+Return ONLY valid JSON, no markdown:
+{
+  "sales": [
+    {"price": 0.00, "date": "MMM DD YYYY", "title": "listing title", "condition": "Raw/PSA 9/etc", "daysAgo": 0, "weight": 1.0, "outlier": false}
+  ],
+  "weightedValue": 0.00,
+  "simpleAvg": 0.00,
+  "trend": "up|down|flat",
+  "trendPct": 0,
+  "confidence": "high|medium|low",
+  "confidenceReason": "e.g. 5 recent sales, tight range",
+  "marketNote": "1-2 sentences on market conditions or data quality"
+}
+Use real eBay sold data only. If fewer than 3 sales found set confidence to low.`;
+
+  try {
+    const data = await _claudeSearch(apiKey, prompt, 1200);
+    const textBlock = data.content.find(b => b.type === 'text');
+    if(!textBlock) throw new Error('No response from search');
+    const raw = textBlock.text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(raw);
+    const { sales, weightedValue, simpleAvg, trend, trendPct, confidence, confidenceReason, marketNote } = parsed;
+    if(!sales || !sales.length) throw new Error('No sales data found');
+
+    const validSales = sales.filter(s => !s.outlier);
+    const displayVal = weightedValue || simpleAvg || (validSales.reduce((s,x)=>s+x.price,0)/validSales.length);
+
+    const trendIcon = trend==='up' ? '📈' : trend==='down' ? '📉' : '➡️';
+    const trendColor = trend==='up' ? 'var(--green)' : trend==='down' ? 'var(--red)' : 'var(--text2)';
+    const trendLabel = trend==='up' ? `+${Math.abs(trendPct||0).toFixed(0)}% trending up`
+      : trend==='down' ? `-${Math.abs(trendPct||0).toFixed(0)}% trending down` : 'flat market';
+    const confEmoji = confidence==='high'?'🟢':confidence==='medium'?'🟡':'🔴';
+
+    const rows = sales.map(s => {
+      const opacity = s.outlier ? '0.4' : s.weight >= 0.75 ? '1' : s.weight >= 0.5 ? '0.8' : '0.65';
+      const strikeStyle = s.outlier ? 'text-decoration:line-through;' : '';
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);opacity:${opacity}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${strikeStyle}">${s.title||''}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${s.condition||''} · ${s.date||''}${s.outlier?' · <span style="color:var(--red)">outlier excluded</span>':''}</div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${s.outlier?'var(--muted)':'var(--gold)'};margin-left:10px;flex-shrink:0;${strikeStyle}">$${parseFloat(s.price).toFixed(2)}</div>
+      </div>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div style="margin-bottom:4px">${rows}</div>
+      <div style="margin:10px 0 6px;padding:10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:12px;color:var(--text2);font-weight:600">Market Value</div>
+          <div style="font-size:10px;color:var(--muted)">${confEmoji} ${confidence} · ${confidenceReason||''}</div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+          <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:700;color:var(--gold)">$${parseFloat(displayVal).toFixed(2)}</div>
+          <div style="font-size:12px;color:${trendColor};font-weight:600">${trendIcon} ${trendLabel}</div>
+        </div>
+        ${simpleAvg && Math.abs(simpleAvg - displayVal) > 0.5 ? `<div style="font-size:10px;color:var(--muted)">Simple avg: $${parseFloat(simpleAvg).toFixed(2)} · Weighted for recency: $${parseFloat(displayVal).toFixed(2)}</div>` : ''}
+      </div>
+      ${marketNote ? `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-style:italic;line-height:1.5">${marketNote}</div>` : ''}
+      <button class="use-price-btn" onclick="applyPrice(${cardId},${parseFloat(displayVal).toFixed(2)})">✅ Use Market Value</button>`;
+
+    if(btn){ btn.textContent='↻ Refresh'; btn.style.opacity=''; btn.style.pointerEvents=''; }
+  } catch(e) {
+    body.innerHTML=`<div class="market-empty" style="color:var(--red)">⚠️ ${e.message}</div>`;
+    if(btn){ btn.textContent='Retry'; btn.style.opacity=''; btn.style.pointerEvents=''; }
+  }
+}
+
 async function runAIPriceNoComps(cardId){
   const card=inventory.find(c=>c.id===cardId); if(!card) return;
   const apiKey=getKey('ai'); if(!apiKey) return;
   const btn=se('ai-est-btn'); const body=se('ai-est-body');
   if(btn){btn.textContent='Thinking…';btn.style.opacity='0.6';btn.style.pointerEvents='none';}
   body.innerHTML='<div class="market-empty">Asking Claude for a price estimate…</div>';
-  const prompt=`You are a sports card pricing expert with deep knowledge of the hobby market. Estimate the current fair market value for this card.
+  const prompt=`You are a sports card pricing expert. Estimate current fair market value for this card based on your training knowledge.
 
-CARD: ${card.player} | ${card.year||'?'} ${card.set||'?'} | ${card.variation||''} | Grade: ${card.grade||card.condition} | Sport: ${card.sport}${card.printRun?' | Print Run: /'+card.printRun:''}
+CARD: ${card.player} | ${_cardLabel(card)} | Sport: ${card.sport}
 
 Respond ONLY with valid JSON, no markdown:
-{"fairValue":0.00,"rangeLow":0.00,"rangeHigh":0.00,"confidence":"medium","reasoning":"2-3 sentences explaining the estimate"}
+{"fairValue":0.00,"rangeLow":0.00,"rangeHigh":0.00,"confidence":"medium","reasoning":"2-3 sentences"}
 confidence = high / medium / low`;
   try {
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
