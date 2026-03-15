@@ -1628,11 +1628,50 @@ async function _claudeSearch(apiKey, userMsg, maxTokens) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: maxTokens,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      tools: [
+        { type: 'web_search_20250305', name: 'web_search' },
+        {
+          name: 'return_comps',
+          description: 'Return the eBay sold comps data as structured JSON',
+          input_schema: {
+            type: 'object',
+            properties: {
+              sales: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    price: { type: 'number' },
+                    date: { type: 'string' },
+                    title: { type: 'string' },
+                    condition: { type: 'string' },
+                    daysAgo: { type: 'number' },
+                    weight: { type: 'number' },
+                    outlier: { type: 'boolean' }
+                  },
+                  required: ['price','date','title','condition','daysAgo','weight','outlier']
+                }
+              },
+              weightedValue: { type: 'number' },
+              simpleAvg: { type: 'number' },
+              trend: { type: 'string', enum: ['up','down','flat'] },
+              trendPct: { type: 'number' },
+              confidence: { type: 'string', enum: ['high','medium','low'] },
+              confidenceReason: { type: 'string' },
+              marketNote: { type: 'string' }
+            },
+            required: ['sales','weightedValue','simpleAvg','trend','trendPct','confidence','confidenceReason','marketNote']
+          }
+        }
+      ],
+      tool_choice: { type: 'any' },
       messages: [{ role: 'user', content: userMsg }]
     })
   });
-  if(!resp.ok) throw new Error('API error ' + resp.status);
+  if(!resp.ok) {
+    if(resp.status === 429) throw new Error('Rate limit hit — wait 30 seconds and retry');
+    throw new Error('API error ' + resp.status);
+  }
   return resp.json();
 }
 
@@ -1671,19 +1710,25 @@ YOU MUST respond with ONLY a raw JSON object. No text before it, no text after i
   "confidenceReason": "e.g. 5 recent sales, tight range",
   "marketNote": "1-2 sentences on market conditions or data quality"
 }
-Use real eBay sold data only. If fewer than 3 sales found set confidence to low.`;
+Use real eBay sold data only. If fewer than 3 sales found set confidence to low. You MUST call the return_comps tool with your findings.`;
 
   try {
     const data = await _claudeSearch(apiKey, prompt, 1200);
-    const textBlock = data.content.find(b => b.type === 'text');
-    if(!textBlock) throw new Error('No response from search');
-    // Extract JSON block robustly — handle any preamble text Claude adds
-    let raw = textBlock.text;
-    const jsonStart = raw.indexOf('{');
-    const jsonEnd = raw.lastIndexOf('}');
-    if(jsonStart === -1 || jsonEnd === -1) throw new Error('No JSON found in response');
-    raw = raw.slice(jsonStart, jsonEnd+1);
-    const parsed = JSON.parse(raw);
+    // Prefer tool_use result (guaranteed structured) over text block
+    const toolBlock = data.content.find(b => b.type === 'tool_use' && b.name === 'return_comps');
+    let parsed;
+    if(toolBlock) {
+      parsed = toolBlock.input;
+    } else {
+      // Fallback: extract JSON from text
+      const textBlock = data.content.find(b => b.type === 'text');
+      if(!textBlock) throw new Error('No response from search');
+      let raw = textBlock.text;
+      const jsonStart = raw.indexOf('{');
+      const jsonEnd = raw.lastIndexOf('}');
+      if(jsonStart === -1 || jsonEnd === -1) throw new Error('No sales data returned — try again');
+      parsed = JSON.parse(raw.slice(jsonStart, jsonEnd+1));
+    }
     const { sales, weightedValue, simpleAvg, trend, trendPct, confidence, confidenceReason, marketNote } = parsed;
     if(!sales || !sales.length) throw new Error('No sales data found');
 
