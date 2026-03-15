@@ -1935,9 +1935,12 @@ async function checkSharedView(){
     });
     if(!res.ok) throw new Error('Could not load collection (' + res.status + ')');
     const data = await res.json();
-    const raw = data.files && data.files['collection.json'] && data.files['collection.json'].content;
-    if(!raw) throw new Error('Collection not found in gist');
-    const cards = JSON.parse(raw);
+    const fileInfo = data.files && data.files['collection.json'];
+    if(!fileInfo) throw new Error('Collection not found in gist');
+    // Use raw_url to get full content — GitHub truncates .content at 1MB
+    const rawRes = await fetch(fileInfo.raw_url);
+    if(!rawRes.ok) throw new Error('Could not fetch collection data');
+    const cards = await rawRes.json();
     _renderSharedCards(Array.isArray(cards) ? cards : []);
     return true;
   } catch(e) {
