@@ -975,18 +975,7 @@ function cardHTML(card, showPL=true){
 
 // ===== BIND CARD TAPS =====
 function bindCardTaps(container) {
-  // pointer-events:none on children means onclick on parent always fires
-  // Bind photo tap to lightbox after render
-  if(card.photo) {
-    // Store photo on the element as a data attribute so global handler can find it
-    setTimeout(() => {
-      const thumb = se('detail-photo-thumb');
-      if(thumb) {
-        thumb.setAttribute('data-photo', '1');
-        thumb.style.cursor = 'zoom-in';
-      }
-    }, 300);
-  }
+  // Cards use inline onclick handlers — nothing to bind here
 }
 
 // ===== PHOTO ZOOM =====
