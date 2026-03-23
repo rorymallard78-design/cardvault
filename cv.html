@@ -891,6 +891,7 @@ function showPage(name) {
     document.getElementById('s-card-count').textContent = inventory.length;
     document.getElementById('s-sold-count').textContent = soldHistory.length;
   }
+  updateHeader();
 }
 // ===== BACK BUTTON — bulletproof for Android Chrome & iOS Safari PWA =====
 function _pushStay() {
@@ -1199,7 +1200,6 @@ function saveEdit(){
   card.certNumber=se('e-cert').value.trim();
   save(); renderDash(); renderInventory(); renderPlayers(); updateHeader();
   closeModal('modal-edit');
-  renderDetail(card);
   toast('✅ Card updated!','success');
 }
 
@@ -1449,6 +1449,7 @@ function confirmSale(){
   save(); closeModal('modal-sell'); closeModal('modal-detail');
   renderDash(); renderInventory(); renderSold(); renderPlayers(); updateHeader();
   toast('✅ Sale recorded!','success');
+  showPage('sold');
 }
 
 // ===== RENDER DASHBOARD =====
@@ -2135,9 +2136,13 @@ if(_binCheck) {
   checkSharedView();
 } else {
   // Normal app mode — seed history stack so back button always has somewhere to go
+  // Restore last active page from hash (e.g. #inventory, #sold, #players, #insights)
+  const _hash = window.location.hash.replace('#','');
+  const _validPages = ['dash','inventory','players','sold','insights','settings'];
+  const _startPage = _validPages.includes(_hash) ? _hash : 'dash';
   try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
   _pushStay(); _pushStay(); _pushStay();
-  renderDash();
+  showPage(_startPage);
 }
 </script>
 </body>
