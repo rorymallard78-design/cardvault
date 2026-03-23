@@ -755,7 +755,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <!-- ===== SELL MODAL ===== -->
-<div class="overlay" id="modal-sell">
+<div class="overlay" id="modal-sell" style="z-index:350">
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-header">
@@ -1011,6 +1011,7 @@ function closeLightbox() { closeModal('modal-photo'); }
 // ===== OPEN CARD =====
 function openCard(id){
   try {
+    id = Number(id);
     const card = inventory.find(c=>c.id===id);
     if(!card){ toast('Card not found','error'); return; }
     currentCardId = id;
@@ -1416,29 +1417,39 @@ function saveNewCard(){
 
 // ===== SELL =====
 function openSellModal(id){
-  currentCardId = id;
+  currentCardId = Number(id);
   se('sell-price').value='';
   se('sell-date').value=new Date().toISOString().split('T')[0];
   openModal('modal-sell');
 }
 function confirmSale(){
-  const card = inventory.find(c=>c.id===currentCardId); if(!card) return;
-  const price = parseFloat(se('sell-price').value);
-  if(isNaN(price)||price<=0){ toast('Enter a valid sale price','error'); return; }
-  const sold = {
-    id:Date.now(), cardId:card.id, player:card.player, sport:card.sport,
-    year:card.year, set:card.set, grade:card.grade, condition:card.condition,
-    cost:card.cost, salePrice:price, pl:price-card.cost,
-    platform:se('sell-platform').value,
-    dateSold:se('sell-date').value,
-    photo:card.photo||null
-  };
-  soldHistory.unshift(sold);
-  inventory = inventory.filter(c=>c.id!==currentCardId);
-  save(); closeModal('modal-sell'); closeModal('modal-detail');
-  renderDash(); renderInventory(); renderSold(); renderPlayers(); updateHeader();
-  toast('✅ Sale recorded!','success');
-  showPage('sold');
+  try {
+    if(!currentCardId){ toast('No card selected','error'); return; }
+    const card = inventory.find(c=>c.id===currentCardId);
+    if(!card){ toast('Card not found (id='+currentCardId+')','error'); return; }
+    const price = parseFloat(se('sell-price').value);
+    if(isNaN(price)||price<=0){ toast('Enter a valid sale price','error'); return; }
+    const sold = {
+      id:Date.now(), cardId:card.id, player:card.player, sport:card.sport,
+      year:card.year, set:card.set, grade:card.grade, condition:card.condition,
+      cost:card.cost, salePrice:price, pl:price-(card.cost||0),
+      platform:se('sell-platform').value,
+      dateSold:se('sell-date').value,
+      photo:card.photo||null,
+      variation:card.variation||'', printRun:card.printRun||''
+    };
+    soldHistory.unshift(sold);
+    inventory = inventory.filter(c=>c.id!==currentCardId);
+    save();
+    closeModal('modal-sell');
+    closeModal('modal-detail');
+    renderDash(); renderInventory(); renderSold(); renderPlayers(); updateHeader();
+    toast('✅ Sale recorded!','success');
+    showPage('sold');
+  } catch(e) {
+    toast('Error: '+e.message,'error');
+    console.error('confirmSale error:', e);
+  }
 }
 
 // ===== RENDER DASHBOARD =====
