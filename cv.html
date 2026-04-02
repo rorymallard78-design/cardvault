@@ -490,7 +490,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <!-- Trending Now -->
   <div class="mkt-section" id="mkt-trending-section">
     <div class="mkt-section-title">🔥 Trending This Week</div>
-    <div id="mkt-trending-body"><div class="mkt-loading">Loading trending cards…</div></div>
+    <div id="mkt-trending-body"><div class="mkt-loading" style="padding:40px 16px">Hit ↻ Refresh to load trending cards</div></div>
   </div>
 </div>
 
@@ -1672,7 +1672,7 @@ let mktChartInstance = null;
 let mktTrendingLoaded = false;
 
 function onMarketPageShow() {
-  if (!mktTrendingLoaded) loadTrending();
+  // Do nothing on tab switch — user hits Refresh to load trending
 }
 
 async function loadTrending() {
@@ -1687,7 +1687,7 @@ async function loadTrending() {
   if (btn) { btn.textContent = '…'; btn.style.opacity = '0.5'; }
 
   const today = new Date().toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
-  const prompt = `Today is ${today}. Search eBay sold listings and sports card hobby news to find the TOP 6 sports cards that are trending RIGHT NOW — cards with significant recent price increases, high search/sales volume, or major buzz in the hobby community this week.
+  const prompt = `Today is ${today}. Search eBay sold listings and sports card hobby news to find the TOP 6 sports cards with the most significant price movement or sales activity in the LAST 30 DAYS ONLY. Only include cards with confirmed eBay sales in the past 30 days.
 
 For each card return:
 - player: full player name
@@ -1699,7 +1699,7 @@ For each card return:
 - reason: 1 sentence why it's trending (news, performance, rookie hype, etc.)
 - volume: "high", "medium" — how much it's selling
 
-Focus on cards actually moving on eBay RIGHT NOW. Mix of sports welcome. Respond ONLY with a JSON array, no markdown, no explanation. Start with [ end with ].`;
+Focus on cards with confirmed eBay sales in the last 30 days only. Mix of sports welcome. Respond ONLY with a JSON array, no markdown, no explanation. Start with [ end with ].`;
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1761,7 +1761,7 @@ function renderTrending(cards) {
 
 function prefillSearch(query) {
   const inp = document.getElementById('mkt-search-input');
-  if (inp) { inp.value = query; searchMarket(); }
+  if (inp) { inp.value = query; inp.focus(); }
 }
 
 async function searchMarket() {
@@ -1783,7 +1783,7 @@ async function searchMarket() {
   const today = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
   const prompt = `Today is ${today}. Search eBay completed/sold listings for this sports card: "${query}"
 
-Find up to 10 recent sold listings. Return ONLY a JSON object, no markdown, no explanation. Start with { end with }.
+Find up to 10 sold listings from the LAST 30 DAYS ONLY. Do not include any sales older than 30 days. If fewer than 3 sales exist in the last 30 days, note that in confidenceReason.
 
 {
   "cardTitle": "clean card name/description",
