@@ -11,7 +11,6 @@
 <link rel="apple-touch-icon" id="apple-icon">
 <title>CardVault</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 function buildPWA() {
   const c = document.createElement('canvas');
@@ -71,29 +70,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 /* NAV */
 .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:200;padding-bottom:env(safe-area-inset-bottom);}
-.nav-btn{flex:1;padding:10px 2px 8px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:8px;font-family:'DM Sans',sans-serif;text-transform:uppercase;letter-spacing:0.5px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color 0.2s;position:relative;}
-/* MARKET PAGE */
-.mkt-search-wrap{display:flex;gap:8px;margin-bottom:16px;}
-.mkt-search-input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;}
-.mkt-search-input:focus{outline:none;border-color:var(--blue);}
-.mkt-search-btn{padding:10px 14px;background:var(--blue-dim);border:1px solid rgba(77,158,247,0.4);border-radius:var(--radius-sm);color:var(--blue);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
-.mkt-section{margin-bottom:20px;}
-.mkt-section-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
-.mkt-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;}
-.mkt-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
-.mkt-card-player{font-weight:700;font-size:14px;color:var(--text);}
-.mkt-card-meta{font-size:11px;color:var(--muted);margin-top:2px;}
-.mkt-trend-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;}
-.mkt-trend-up{background:rgba(74,222,128,0.15);color:var(--green);}
-.mkt-trend-down{background:rgba(248,113,113,0.15);color:var(--red);}
-.mkt-trend-flat{background:rgba(255,255,255,0.08);color:var(--muted);}
-.mkt-reason{font-size:11px;color:var(--text2);margin-top:6px;font-style:italic;line-height:1.4;}
-.mkt-chart-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;}
-.mkt-chart-title{font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px;}
-.mkt-empty{text-align:center;color:var(--muted);font-size:13px;padding:30px 16px;line-height:1.6;}
-.mkt-sale-row{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);}
-.mkt-sale-row:last-child{border-bottom:none;}
-.mkt-loading{text-align:center;color:var(--muted);font-size:13px;padding:20px;}
+.nav-btn{flex:1;padding:10px 4px 8px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:9px;font-family:'DM Sans',sans-serif;text-transform:uppercase;letter-spacing:0.8px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color 0.2s;position:relative;}
 .nav-btn.active{color:var(--gold);}
 .nav-btn.active::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--gold);border-radius:0 0 2px 2px;}
 .nav-icon{font-size:18px;}
@@ -463,37 +440,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
-<!-- MARKET PAGE -->
-<div class="page" id="page-market">
-  <div class="sec-header">
-    <div class="sec-title">Market Trends</div>
-    <button class="btn-sm" id="mkt-refresh-btn" onclick="loadTrending()">↻ Refresh</button>
-  </div>
-
-  <div class="mkt-search-wrap">
-    <input class="mkt-search-input" id="mkt-search-input" type="text" placeholder="Search any card or player…" onkeydown="if(event.key==='Enter')searchMarket()">
-    <button class="mkt-search-btn" onclick="searchMarket()">Search</button>
-  </div>
-
-  <!-- Search Results -->
-  <div id="mkt-results" style="display:none">
-    <div class="mkt-section">
-      <div class="mkt-section-title" id="mkt-results-title">📊 Results</div>
-      <div id="mkt-chart-wrap" class="mkt-chart-wrap" style="display:none">
-        <div class="mkt-chart-title" id="mkt-chart-label">Price Trend — Last 90 Days</div>
-        <canvas id="mkt-chart" height="180"></canvas>
-      </div>
-      <div id="mkt-results-body"></div>
-    </div>
-  </div>
-
-  <!-- Trending Now -->
-  <div class="mkt-section" id="mkt-trending-section">
-    <div class="mkt-section-title">🔥 Trending This Week</div>
-    <div id="mkt-trending-body"><div class="mkt-loading" style="padding:40px 16px">Hit ↻ Refresh to load trending cards</div></div>
-  </div>
-</div>
-
 <div class="page" id="page-settings">
   <div class="sec-header">
     <div class="sec-title">Settings</div>
@@ -568,7 +514,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <button class="nav-btn" id="nav-players" onclick="showPage('players')"><span class="nav-icon">👤</span>Players</button>
   <button class="nav-btn" id="nav-sold" onclick="showPage('sold')"><span class="nav-icon">✅</span>Sold</button>
   <button class="nav-btn" id="nav-insights" onclick="showPage('insights')"><span class="nav-icon">📈</span>Insights</button>
-  <button class="nav-btn" id="nav-market" onclick="showPage('market')"><span class="nav-icon">🔥</span>Market</button>
 </nav>
 
 <button class="fab" id="fab" onclick="openAddModal()">+</button>
@@ -775,6 +720,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           </div>
         </div>
         <button class="btn btn-primary" onclick="switchEditTab('price')">Next →</button>
+        <!-- Photo replace -->
+        <div style="margin-top:4px;border-top:1px solid var(--border);padding-top:14px">
+          <label class="form-label">Card Photo</label>
+          <div id="e-photo-strip" style="display:none;margin-bottom:10px" class="photo-strip">
+            <div class="photo-strip-img"><img id="e-strip-img" src=""></div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:600;color:var(--green)">✅ Photo ready</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap Replace to choose a different one</div>
+            </div>
+            <button onclick="clearEditPhoto()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px">✕</button>
+          </div>
+          <div id="e-photo-empty" style="margin-bottom:10px;font-size:12px;color:var(--muted)">No photo saved for this card.</div>
+          <input type="file" id="e-photo-input" accept="image/*" style="display:none" onchange="handleEditPhoto(event)">
+          <button class="btn btn-secondary" style="margin-bottom:0" onclick="document.getElementById('e-photo-input').click()">📷 Replace Photo</button>
+        </div>
       </div>
       <div id="edit-price" style="display:none">
         <div class="form-row">
@@ -847,61 +807,117 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <script>
 // ===== DATA =====
-const KEYS = { inv:'cv_inventory', sold:'cv_sold', ai:'cv_apikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey', gist:'cv_gisttoken', photos:'cv_photos', backup:'cv_backup', backupSold:'cv_backup_sold' };
+const KEYS = { inv:'cv_inventory', sold:'cv_sold', ai:'cv_apikey', ebay:'cv_ebaykey', psa:'cv_psakey', share:'cv_sharekey', gist:'cv_gisttoken', backup:'cv_backup', backupSold:'cv_backup_sold' };
 let inventory = [], soldHistory = [], sportFilter = 'all', currentCardId = null, scanPhoto = null, scanParsed = {}, openPlayerName = null;
 
-function load() {
+// ── IndexedDB photo store (no size limit vs localStorage 5MB cap) ──
+let _photoDB = null;
+function openPhotoDB() {
+  if (_photoDB) return Promise.resolve(_photoDB);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('cv_photos_db', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('photos', { keyPath: 'id' });
+    req.onsuccess = e => { _photoDB = e.target.result; res(_photoDB); };
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbGetPhoto(id) {
+  const db = await openPhotoDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readonly');
+    const req = tx.objectStore('photos').get(id);
+    req.onsuccess = () => res(req.result ? req.result.data : null);
+    req.onerror = () => res(null);
+  });
+}
+async function dbSetPhoto(id, data) {
+  const db = await openPhotoDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').put({ id, data });
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function dbDeletePhoto(id) {
+  const db = await openPhotoDB();
+  return new Promise((res) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror = () => res();
+  });
+}
+async function dbGetAllPhotos() {
+  const db = await openPhotoDB();
+  return new Promise((res) => {
+    const tx = db.transaction('photos', 'readonly');
+    const req = tx.objectStore('photos').getAll();
+    req.onsuccess = () => {
+      const map = {};
+      (req.result || []).forEach(r => { map[r.id] = r.data; });
+      res(map);
+    };
+    req.onerror = () => res({});
+  });
+}
+
+async function load() {
   try { inventory = JSON.parse(localStorage.getItem(KEYS.inv)||'[]'); } catch(e){ inventory=[]; }
   try { soldHistory = JSON.parse(localStorage.getItem(KEYS.sold)||'[]'); } catch(e){ soldHistory=[]; }
-  // Rehydrate photos from separate store
+
+  // Rehydrate photos from IndexedDB
   try {
-    const photos = JSON.parse(localStorage.getItem(KEYS.photos)||'{}');
-    inventory.forEach(c=>{ if(!c.photo && photos[c.id]) c.photo = photos[c.id]; });
-  } catch(e){}
+    const photos = await dbGetAllPhotos();
+    // Also migrate any old localStorage photos across (one-time migration)
+    try {
+      const oldRaw = localStorage.getItem('cv_photos');
+      if (oldRaw) {
+        const oldPhotos = JSON.parse(oldRaw);
+        for (const [id, data] of Object.entries(oldPhotos)) {
+          if (!photos[id]) { await dbSetPhoto(id, data); photos[id] = data; }
+        }
+        localStorage.removeItem('cv_photos');
+      }
+    } catch(e) {}
+    inventory.forEach(c => { if (!c.photo && photos[c.id]) c.photo = photos[c.id]; });
+  } catch(e) {}
+
   // CRASH RECOVERY: if inventory is empty but a backup exists, auto-restore silently
-  if(inventory.length === 0) {
+  if (inventory.length === 0) {
     try {
       const backupInv = JSON.parse(localStorage.getItem(KEYS.backup)||'[]');
       const backupSold = JSON.parse(localStorage.getItem(KEYS.backupSold)||'[]');
-      if(backupInv.length > 0) {
+      if (backupInv.length > 0) {
         inventory = backupInv;
-        if(backupSold.length) soldHistory = backupSold;
-        try {
-          const photos = JSON.parse(localStorage.getItem(KEYS.photos)||'{}');
-          inventory.forEach(c=>{ if(!c.photo && photos[c.id]) c.photo = photos[c.id]; });
-        } catch(e){}
-        const slim = inventory.map(c=>{ const p=Object.assign({},c); delete p.photo; return p; });
+        if (backupSold.length) soldHistory = backupSold;
+        const photos = await dbGetAllPhotos();
+        inventory.forEach(c => { if (!c.photo && photos[c.id]) c.photo = photos[c.id]; });
+        const slim = inventory.map(c => { const p = Object.assign({}, c); delete p.photo; return p; });
         localStorage.setItem(KEYS.inv, JSON.stringify(slim));
         localStorage.setItem(KEYS.sold, JSON.stringify(soldHistory));
-        setTimeout(()=>toast('\u2705 Collection restored from backup!','success'), 800);
+        setTimeout(() => toast('\u2705 Collection restored from backup!', 'success'), 800);
       }
-    } catch(e){}
+    } catch(e) {}
   }
 }
+
 function save() {
-  // Strip photos from inventory before saving so photo size never causes card data loss
-  const photos = {};
-  const slim = inventory.map(c=>{
+  // Strip photos from inventory — save them to IndexedDB, card data to localStorage
+  const slim = inventory.map(c => {
     const p = Object.assign({}, c);
-    if(p.photo){ photos[p.id] = p.photo; delete p.photo; }
+    if (p.photo) {
+      dbSetPhoto(p.id, p.photo).catch(() => {});
+      delete p.photo;
+    }
     return p;
   });
   localStorage.setItem(KEYS.inv, JSON.stringify(slim));
   localStorage.setItem(KEYS.sold, JSON.stringify(soldHistory));
-  // Only write backup when we have real data — NEVER overwrite backup with empty array
-  if(inventory.length > 0) {
-    try { localStorage.setItem(KEYS.backup, JSON.stringify(slim)); } catch(e){}
-    try { localStorage.setItem(KEYS.backupSold, JSON.stringify(soldHistory)); } catch(e){}
-  }
-  // Save photos separately — if full, save what fits without touching card data
-  try {
-    localStorage.setItem(KEYS.photos, JSON.stringify(photos));
-  } catch(e) {
-    const saved = {};
-    for(const [id, photo] of Object.entries(photos)){
-      try { localStorage.setItem(KEYS.photos, JSON.stringify(Object.assign({},saved,{[id]:photo}))); saved[id]=photo; } catch(e2){ break; }
-    }
-    toast('\u26a0\ufe0f Some photos could not be saved \u2014 storage full','error');
+  // Only write backup when we have real data
+  if (inventory.length > 0) {
+    try { localStorage.setItem(KEYS.backup, JSON.stringify(slim)); } catch(e) {}
+    try { localStorage.setItem(KEYS.backupSold, JSON.stringify(soldHistory)); } catch(e) {}
   }
 }
 function getKey(k) { return localStorage.getItem(KEYS[k])||''; }
@@ -941,7 +957,6 @@ function showPage(name) {
   if(name==='players') renderPlayers();
   if(name==='sold') renderSold();
   if(name==='insights') renderInsights();
-  if(name==='market') onMarketPageShow();
   if(name==='settings') {
     ['ai','psa','gist'].forEach(updateKeyStatus);
     document.getElementById('s-card-count').textContent = inventory.length;
@@ -1194,6 +1209,7 @@ function saveCert(id){
 }
 function deleteCard(id){
   if(!confirm('Remove this card from your vault?')) return;
+  dbDeletePhoto(id).catch(()=>{});
   inventory = inventory.filter(c=>c.id!==id); save();
   closeModal('modal-detail'); renderDash(); renderInventory(); renderPlayers();
   toast('Card removed','');
@@ -1216,8 +1232,43 @@ function openEditModal(){
   se('e-condition').value = card.condition||'Raw';
   se('e-grade').value = card.grade||'';
   se('e-cert').value = card.certNumber||'';
+  // Reset photo UI then show current state
+  se('e-photo-input').value = '';
+  editPhotoData = null;
+  if(card.photo){
+    se('e-strip-img').src = card.photo;
+    se('e-photo-strip').style.display = 'flex';
+    se('e-photo-empty').style.display = 'none';
+  } else {
+    se('e-photo-strip').style.display = 'none';
+    se('e-photo-empty').style.display = 'block';
+  }
   switchEditTab('info');
   openModal('modal-edit');
+}
+
+let editPhotoData = null;
+
+async function handleEditPhoto(event){
+  const file = event.target.files[0]; if(!file) return;
+  toast('Processing photo…','');
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const compressed = await compressImage(e.target.result, 800, 0.7);
+    editPhotoData = compressed;
+    se('e-strip-img').src = compressed;
+    se('e-photo-strip').style.display = 'flex';
+    se('e-photo-empty').style.display = 'none';
+    toast('✅ Photo ready — save to apply','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearEditPhoto(){
+  editPhotoData = 'REMOVE';
+  se('e-photo-strip').style.display = 'none';
+  se('e-photo-empty').style.display = 'block';
+  se('e-photo-empty').textContent = 'Photo will be removed on save.';
 }
 function switchEditTab(t){
   ['info','price','grade'].forEach(tab=>{
@@ -1244,6 +1295,14 @@ function saveEdit(){
   card.condition=se('e-condition').value;
   card.grade=se('e-grade').value;
   card.certNumber=se('e-cert').value.trim();
+  // Apply photo change if one was made
+  if(editPhotoData === 'REMOVE'){
+    card.photo = null;
+    dbDeletePhoto(card.id).catch(()=>{});
+  } else if(editPhotoData){
+    card.photo = editPhotoData;
+  }
+  editPhotoData = null;
   save(); renderDash(); renderInventory(); renderPlayers(); updateHeader();
   closeModal('modal-edit');
   toast('✅ Card updated!','success');
@@ -1664,268 +1723,6 @@ function renderInsights(){
   const losers=withPL.filter(c=>c.pl<0).sort((a,b)=>a.pl-b.pl);
   se('i-losers').innerHTML=losers.length?losers.slice(0,10).map((c,i)=>insightItem(c,i+1,fmtPL(c.pl),fmt(c.value),'var(--red)')).join(''):`<div style="text-align:center;padding:16px;color:var(--green);font-size:13px">No losers — great work! 🎉</div>`;
   bindCardTaps(se('i-losers'));
-}
-
-// ===== MARKET TRENDS =====
-
-let mktChartInstance = null;
-let mktTrendingLoaded = false;
-
-function onMarketPageShow() {
-  // Do nothing on tab switch — user hits Refresh to load trending
-}
-
-async function loadTrending() {
-  const apiKey = getKey('ai');
-  const body = document.getElementById('mkt-trending-body');
-  if (!apiKey) {
-    body.innerHTML = '<div class="mkt-empty">Add your Anthropic API key in Settings to enable market trends.</div>';
-    return;
-  }
-  body.innerHTML = '<div class="mkt-loading">🔍 Searching for trending cards…</div>';
-  const btn = document.getElementById('mkt-refresh-btn');
-  if (btn) { btn.textContent = '…'; btn.style.opacity = '0.5'; }
-
-  const today = new Date().toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
-  const prompt = `Today is ${today}. Search eBay sold listings and sports card hobby news to find the TOP 6 sports cards with the most significant price movement or sales activity in the LAST 30 DAYS ONLY. Only include cards with confirmed eBay sales in the past 30 days.
-
-For each card return:
-- player: full player name
-- card: year + set + key details (e.g. "2021 Panini Prizm Rookie")  
-- sport: sport name
-- trendPct: estimated % price change recently (positive = up, negative = down)
-- direction: "up", "down", or "hot" (hot = new release or extreme demand)
-- approxValue: rough current market value range as string e.g. "$45-60"
-- reason: 1 sentence why it's trending (news, performance, rookie hype, etc.)
-- volume: "high", "medium" — how much it's selling
-
-Focus on cards with confirmed eBay sales in the last 30 days only. Mix of sports welcome. Respond ONLY with a JSON array, no markdown, no explanation. Start with [ end with ].`;
-
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    if (!resp.ok) throw new Error('API error ' + resp.status);
-    const data = await resp.json();
-    const textBlock = data.content.find(b => b.type === 'text');
-    if (!textBlock) throw new Error('No response');
-    let raw = textBlock.text;
-    const s = raw.indexOf('['), e = raw.lastIndexOf(']');
-    if (s === -1 || e === -1) throw new Error('No data returned');
-    const cards = JSON.parse(raw.slice(s, e + 1));
-    renderTrending(cards);
-    mktTrendingLoaded = true;
-  } catch(err) {
-    body.innerHTML = `<div class="mkt-empty" style="color:var(--red)">⚠️ ${err.message}</div>`;
-  } finally {
-    if (btn) { btn.textContent = '↻ Refresh'; btn.style.opacity = ''; }
-  }
-}
-
-function renderTrending(cards) {
-  const body = document.getElementById('mkt-trending-body');
-  if (!cards || !cards.length) { body.innerHTML = '<div class="mkt-empty">No trending data found.</div>'; return; }
-  body.innerHTML = cards.map(c => {
-    const dir = c.direction === 'up' || c.direction === 'hot' ? 'up' : c.direction === 'down' ? 'down' : 'flat';
-    const badgeClass = dir === 'up' ? 'mkt-trend-up' : dir === 'down' ? 'mkt-trend-down' : 'mkt-trend-flat';
-    const arrow = dir === 'up' ? '📈' : dir === 'down' ? '📉' : '🔥';
-    const pct = c.trendPct ? (c.trendPct > 0 ? `+${c.trendPct}%` : `${c.trendPct}%`) : '';
-    const volDot = c.volume === 'high' ? '🟢' : '🟡';
-    return `<div class="mkt-card" onclick="prefillSearch('${c.player.replace(/'/g,"\\'")} ${c.card.replace(/'/g,"\\'")}')">
-      <div class="mkt-card-header">
-        <div>
-          <div class="mkt-card-player">${c.player}</div>
-          <div class="mkt-card-meta">${c.card} · ${c.sport}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;margin-left:8px">
-          <div class="mkt-trend-badge ${badgeClass}">${arrow} ${pct}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:3px">${volDot} ${c.approxValue||''}</div>
-        </div>
-      </div>
-      <div class="mkt-reason">${c.reason||''}</div>
-    </div>`;
-  }).join('');
-}
-
-function prefillSearch(query) {
-  const inp = document.getElementById('mkt-search-input');
-  if (inp) { inp.value = query; inp.focus(); }
-}
-
-async function searchMarket() {
-  const inp = document.getElementById('mkt-search-input');
-  const query = inp ? inp.value.trim() : '';
-  if (!query) return;
-  const apiKey = getKey('ai');
-  if (!apiKey) { alert('Add your Anthropic API key in Settings first.'); return; }
-
-  const resultsDiv = document.getElementById('mkt-results');
-  const resultsBody = document.getElementById('mkt-results-body');
-  const resultsTitle = document.getElementById('mkt-results-title');
-  const chartWrap = document.getElementById('mkt-chart-wrap');
-  resultsDiv.style.display = 'block';
-  resultsTitle.textContent = `📊 ${query}`;
-  resultsBody.innerHTML = '<div class="mkt-loading">🔍 Searching eBay sold listings…</div>';
-  chartWrap.style.display = 'none';
-
-  const today = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  const prompt = `Today is ${today}. Search eBay completed/sold listings for this sports card: "${query}"
-
-Find up to 10 sold listings from the LAST 30 DAYS ONLY. Do not include any sales older than 30 days. If fewer than 3 sales exist in the last 30 days, note that in confidenceReason.
-
-{
-  "cardTitle": "clean card name/description",
-  "sales": [
-    {"price": 0.00, "date": "MMM DD YYYY", "title": "listing title", "condition": "Raw/PSA 9/etc", "daysAgo": 0, "outlier": false}
-  ],
-  "weightedValue": 0.00,
-  "simpleAvg": 0.00,
-  "trend": "up|down|flat",
-  "trendPct": 0,
-  "confidence": "high|medium|low",
-  "confidenceReason": "brief reason",
-  "marketNote": "1-2 sentences on current market",
-  "searchVolume": "high|medium|low",
-  "searchVolumeNote": "brief note on demand/how often selling"
-}`;
-
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1800,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    if (!resp.ok) throw new Error('API error ' + resp.status);
-    const data = await resp.json();
-    const textBlock = data.content.find(b => b.type === 'text');
-    if (!textBlock) throw new Error('No response');
-    let raw = textBlock.text;
-    const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
-    if (s === -1 || e === -1) throw new Error('No sales data returned — try again');
-    const parsed = JSON.parse(raw.slice(s, e + 1));
-    renderMarketResults(parsed, query);
-  } catch(err) {
-    resultsBody.innerHTML = `<div class="mkt-empty" style="color:var(--red)">⚠️ ${err.message}</div>`;
-  }
-}
-
-function renderMarketResults(parsed, query) {
-  const resultsBody = document.getElementById('mkt-results-body');
-  const chartWrap = document.getElementById('mkt-chart-wrap');
-  const chartLabel = document.getElementById('mkt-chart-label');
-  const { sales = [], weightedValue, simpleAvg, trend, trendPct, confidence, confidenceReason, marketNote, searchVolume, searchVolumeNote, cardTitle } = parsed;
-
-  if (!sales.length) {
-    resultsBody.innerHTML = '<div class="mkt-empty">No recent sold listings found. Try a more specific search.</div>';
-    return;
-  }
-
-  // Chart
-  const validSales = sales.filter(s => !s.outlier).sort((a,b) => b.daysAgo - a.daysAgo);
-  if (validSales.length >= 2) {
-    chartWrap.style.display = 'block';
-    chartLabel.textContent = `${cardTitle || query} — Price Trend`;
-    if (mktChartInstance) { mktChartInstance.destroy(); mktChartInstance = null; }
-    const ctx = document.getElementById('mkt-chart').getContext('2d');
-    const labels = validSales.map(s => s.date);
-    const prices = validSales.map(s => s.price);
-    const trendColor = trend === 'up' ? '#4ade80' : trend === 'down' ? '#f87171' : '#4d9ef7';
-    mktChartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Sale Price',
-          data: prices,
-          borderColor: trendColor,
-          backgroundColor: trendColor + '22',
-          borderWidth: 2,
-          pointBackgroundColor: trendColor,
-          pointRadius: 4,
-          tension: 0.3,
-          fill: true
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => '$' + ctx.parsed.y.toFixed(2)
-            }
-          }
-        },
-        scales: {
-          x: { ticks: { color: '#888', font: { size: 10 }, maxRotation: 30 }, grid: { color: '#ffffff0f' } },
-          y: { ticks: { color: '#888', font: { size: 10 }, callback: v => '$' + v }, grid: { color: '#ffffff0f' } }
-        }
-      }
-    });
-  }
-
-  // Stats bar
-  const displayVal = weightedValue || simpleAvg || 0;
-  const trendIcon = trend === 'up' ? '📈' : trend === 'down' ? '📉' : '➡️';
-  const trendColor2 = trend === 'up' ? 'var(--green)' : trend === 'down' ? 'var(--red)' : 'var(--text2)';
-  const trendLabel = trend === 'up' ? `+${Math.abs(trendPct||0)}% recently` : trend === 'down' ? `-${Math.abs(trendPct||0)}% recently` : 'flat market';
-  const confEmoji = confidence === 'high' ? '🟢' : confidence === 'medium' ? '🟡' : '🔴';
-  const volIcon = searchVolume === 'high' ? '🔥' : searchVolume === 'medium' ? '📦' : '💤';
-
-  const rows = sales.map(s => {
-    const op = s.outlier ? '0.35' : '1';
-    const strike = s.outlier ? 'text-decoration:line-through;' : '';
-    return `<div class="mkt-sale-row" style="opacity:${op}">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${strike}">${s.title||''}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${s.condition||''} · ${s.date||''}${s.outlier?' · <span style="color:var(--red)">outlier</span>':''}</div>
-      </div>
-      <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${s.outlier?'var(--muted)':'var(--gold)'};margin-left:10px;flex-shrink:0;${strike}">$${parseFloat(s.price).toFixed(2)}</div>
-    </div>`;
-  }).join('');
-
-  resultsBody.innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:700;color:var(--gold)">$${parseFloat(displayVal).toFixed(2)}</div>
-          <div style="font-size:11px;color:var(--muted)">Weighted market value</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:13px;font-weight:700;color:${trendColor2}">${trendIcon} ${trendLabel}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">${confEmoji} ${confidence} confidence · ${confidenceReason||''}</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;font-size:11px">
-        <div style="background:var(--bg3);border-radius:6px;padding:5px 10px;color:var(--text2)">${volIcon} <strong>Demand:</strong> ${searchVolume||'—'}</div>
-        ${searchVolumeNote ? `<div style="background:var(--bg3);border-radius:6px;padding:5px 10px;color:var(--muted);flex:1">${searchVolumeNote}</div>` : ''}
-      </div>
-    </div>
-    ${marketNote ? `<div style="font-size:11px;color:var(--muted);margin-bottom:12px;font-style:italic;line-height:1.5;padding:0 2px">${marketNote}</div>` : ''}
-    <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px">Recent Sales (${sales.length})</div>
-    <div>${rows}</div>`;
 }
 
 // ===== EBAY =====
@@ -2446,22 +2243,24 @@ function clearAllData(){
 }
 
 // ===== INIT =====
-load();
-document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-// Check for ?bin= share param FIRST before any history changes
-const _binCheck = (window.location.search + window.location.hash).indexOf('gist=') !== -1;
-if(_binCheck) {
-  checkSharedView();
-} else {
-  // Normal app mode — seed history stack so back button always has somewhere to go
-  // Restore last active page from hash (e.g. #inventory, #sold, #players, #insights)
-  const _hash = window.location.hash.replace('#','');
-  const _validPages = ['dash','inventory','players','sold','insights','settings','market'];
-  const _startPage = _validPages.includes(_hash) ? _hash : 'dash';
-  try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
-  _pushStay(); _pushStay(); _pushStay();
-  showPage(_startPage);
-}
+(async () => {
+  await load();
+  document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  // Check for ?bin= share param FIRST before any history changes
+  const _binCheck = (window.location.search + window.location.hash).indexOf('gist=') !== -1;
+  if(_binCheck) {
+    checkSharedView();
+  } else {
+    // Normal app mode — seed history stack so back button always has somewhere to go
+    // Restore last active page from hash (e.g. #inventory, #sold, #players, #insights)
+    const _hash = window.location.hash.replace('#','');
+    const _validPages = ['dash','inventory','players','sold','insights','settings','market'];
+    const _startPage = _validPages.includes(_hash) ? _hash : 'dash';
+    try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
+    _pushStay(); _pushStay(); _pushStay();
+    showPage(_startPage);
+  }
+})();
 </script>
 </body>
 </html>
