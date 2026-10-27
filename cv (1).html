@@ -2192,7 +2192,9 @@ async function fetchPSA(cardId){
           if(btn){btn.textContent='↻ Refresh';btn.style.opacity='';btn.style.pointerEvents='';}
           return;
         }
+        throw new Error('PSA has no record for cert '+card.certNumber+(d&&d.ServerMessage?' — '+d.ServerMessage:''));
       }
+      throw new Error('PSA cert lookup failed (HTTP '+r.status+')'+(r.status===401?' — token rejected':r.status===429?' — daily limit reached':''));
     }
     const subject=encodeURIComponent([card.player,card.year,card.set].filter(Boolean).join(' '));
     const pr=await fetch(`https://api.psacard.com/publicapi/pop/GetPopReportBySport?subject=${subject}`,{headers:{'Authorization':`bearer ${token}`}});
@@ -2202,7 +2204,7 @@ async function fetchPSA(cardId){
     body.innerHTML=popHTML||`<div class="market-empty">No pop data found. Try adding the PSA cert # above.</div>`;
     if(btn){btn.textContent='↻ Refresh';btn.style.opacity='';btn.style.pointerEvents='';}
   } catch(err){
-    body.innerHTML=`<div class="market-empty" style="color:var(--red)">⚠️ ${err.message}<br><small style="color:var(--muted)">Check your PSA token in Settings</small></div>`;
+    body.innerHTML=`<div class="market-empty" style="color:var(--red)">⚠️ ${err.message}<br><small style="color:var(--muted)">401 = token problem. Other codes mean something else.</small></div>`;
     if(btn){btn.textContent='Retry';btn.style.opacity='';btn.style.pointerEvents='';}
   }
 }
