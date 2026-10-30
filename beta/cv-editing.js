@@ -34,16 +34,17 @@ function cveSaveSale(){
  const keys=['gross','fees','ship','other'],raw=keys.map(k=>se('cve-'+k).value.trim());
  if(raw.some(v=>!v||!Number.isFinite(Number(v))||Number(v)<0)){error.textContent='Enter valid amounts.';return;}
  const [gross,fees,ship,other]=raw.map(v=>Math.round(Number(v)*100)/100);
+ if(raw.some((v,i)=>Math.abs(Number(v)*100-Math.round(Number(v)*100))>0.00001)){error.textContent='Enter amounts in dollars and cents.';return;}
  if(gross<=0||fees+ship+other>gross+.001){error.textContent='Sale must cover expenses.';return;}
  const date=se('cve-date').value,platform=se('cve-platform').value.trim();
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!platform){error.textContent='Enter a date and platform.';return;}
  let cost=0,status='';
  if(CVE.mode==='individual'){
   cost=Number(se('cve-cost').value);status=se('cve-status').value;
-  if(!Number.isFinite(cost)||cost<0||(status==='free'&&cost!==0)||(status==='known'&&cost<=0)||cost+0.001<Number(items[0].gradingCosts||0)){error.textContent='Check cost, grading expenses and cost status.';return;}
+  if(!Number.isFinite(cost)||cost<0||Math.abs(cost*100-Math.round(cost*100))>0.00001||(status==='free'&&cost!==Number(items[0].gradingCosts||0))||(status==='known'&&cost<=0)||cost+0.001<Number(items[0].gradingCosts||0)){error.textContent='Check cost, grading expenses and cost status.';return;}
  }
  const prior=items.map(x=>JSON.parse(JSON.stringify(x)));
- const allocate=(total,field)=>CVE.mode==='lot'?cvxAllocateCents(total,items.map(x=>Number(x[field])||0)):[total];
+ const allocate=(total,field)=>{if(CVE.mode!=='lot')return [total];const old=Math.round(items.reduce((a,x)=>a+Number(x[field]||0),0)*100)/100;if(total===old)return items.map(x=>Number(x[field]||0));return cvxAllocateCents(total,items.map(x=>Number(x[field])||0));};
  const amounts={salePrice:allocate(gross,'salePrice'),fees:allocate(fees,'fees'),shipping:allocate(ship,'shipping'),otherExpenses:allocate(other,'otherExpenses')};
  try{
   items.forEach((s,i)=>{
@@ -71,7 +72,7 @@ function cveBulk(){
 function cveSaveBulk(){
  const cards=CVE.ids.map(id=>inventory.find(c=>Number(c.id)===Number(id))),error=se('cve-error');
  const input=cards.map((c,i)=>({c,cost:se('cve-ic-'+i).value,value:se('cve-iv-'+i).value}));
- if(input.some(x=>!x.c||x.cost===''||!Number.isFinite(Number(x.cost))||Number(x.cost)<0||Number(x.cost)<Number(x.c.gradingCosts||0)||
+ if(input.some(x=>!x.c||x.cost===''||!Number.isFinite(Number(x.cost))||Number(x.cost)<0||Math.abs(Number(x.cost)*100-Math.round(Number(x.cost)*100))>0.00001||Number(x.cost)<Number(x.c.gradingCosts||0)||
  (x.value!==''&&(!Number.isFinite(Number(x.value))||Number(x.value)<0)))){error.textContent='Review all amounts; cost cannot be below grading expenses.';return;}
  const old=cards.map(c=>JSON.parse(JSON.stringify(c)));
  try{
