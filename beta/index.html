@@ -74,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .nav-btn.active{color:var(--gold);}
 .nav-btn.active::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--gold);border-radius:0 0 2px 2px;}
 .nav-icon{font-size:18px;}
-.fab{position:fixed;bottom:82px;right:16px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#e09d1a);border:none;cursor:pointer;font-size:26px;color:var(--bg);box-shadow:0 4px 20px rgba(240,180,41,0.4);display:flex;align-items:center;justify-content:center;z-index:150;-webkit-tap-highlight-color:transparent;}
+.fab{position:fixed;bottom:calc(var(--cv-nav-height, 88px) + 18px);right:max(16px,calc((100vw - 448px)/2));width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#e09d1a);border:none;cursor:pointer;font-size:26px;color:var(--bg);box-shadow:0 4px 20px rgba(240,180,41,0.4);display:flex;align-items:center;justify-content:center;z-index:150;-webkit-tap-highlight-color:transparent;}
 
 /* PAGES */
 .page{display:none;padding:16px;animation:fadeIn 0.2s ease;}
@@ -1186,7 +1186,15 @@ function showPage(name) {
   if(name==='inventory') renderInventory();
   if(name==='players') renderPlayers();
   if(name==='sold') renderSold();
-  if(name==='insights') renderInsights();
+  if(name==='insights') {
+    // Avoid carrying a stale, empty import overlay into the financial Insights page.
+    const importDialog=document.getElementById('cv-import-modal');
+    if(importDialog&&importDialog.classList.contains('open')){
+      importDialog.classList.remove('open');
+      if(!document.querySelector('.overlay.open'))document.body.style.overflow='';
+    }
+    renderInsights();
+  }
   if(name==='settings') {
     ['ai','psa','gist'].forEach(updateKeyStatus);
     document.getElementById('s-card-count').textContent = inventory.length;
@@ -2511,8 +2519,19 @@ function clearAllData(){
     _pushStay(); _pushStay(); _pushStay();
     showPage(_startPage);
   }
+  // Track the real bottom navigation height, including extra buttons and safe area.
+  // This prevents the floating Add Card button from being obscured on mobile.
+  const cvNav=document.querySelector('nav.nav');
+  const syncFabPosition=()=>{
+    if(!cvNav)return;
+    const height=Math.ceil(cvNav.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--cv-nav-height',Math.max(68,height)+'px');
+  };
+  syncFabPosition();
+  if(window.ResizeObserver&&cvNav)new ResizeObserver(syncFabPosition).observe(cvNav);
+  window.addEventListener('resize',syncFabPosition);
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=import-isolated-v2"];
+  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=import-preview-guard-v3"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
