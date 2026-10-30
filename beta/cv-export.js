@@ -172,19 +172,15 @@ function cvExportInit(){
  const before=target.querySelector('.setting-section:last-child');if(before)target.insertBefore(section,before);else target.append(section);
  // Keep export buttons OUT of crowded page headers. Multiple actions in
  // the Inventory header pushed Export CSV partly beyond narrow phone screens.
- const insertQuick=(page,buttonText,onclick)=>{
-  const pageEl=se(page),header=pageEl?.querySelector('.sec-header');if(!header)return;
-  const row=document.createElement('div');
-  row.className='cv-export-quick-row';
-  row.style.cssText='display:flex;width:100%;min-width:0;margin:-3px 0 12px;box-sizing:border-box';
-  const btn=document.createElement('button');
-  btn.type='button';btn.className='btn-sm';
-  btn.style.cssText='display:block;box-sizing:border-box;width:100%;min-width:0;padding:11px 12px;white-space:normal;text-align:center';
-  btn.textContent=buttonText;btn.onclick=onclick;
-  row.appendChild(btn);header.after(row);
- };
- insertQuick('page-inventory','⬇ Export Inventory CSV',()=>cvExportAction('inventory'));
- insertQuick('page-sold','⬇ Export Sales CSV',()=>cvExportAction('sales'));
+ // Export actions are permanent full-width HTML buttons, not items in the crowded header.
+ // Remove any legacy dynamic export buttons left by an older mobile-app script.
+ for(const page of ['page-inventory','page-sold']){
+  const header=se(page)?.querySelector('.sec-header');
+  if(!header)continue;
+  [...header.querySelectorAll('button')].forEach(b=>{
+   if(/export.*csv/i.test(b.textContent||''))b.remove();
+  });
+ }
  const old=showPage;
  showPage=function(name){old(name);if(name==='settings')cvExportUpdateYears();};
  cvExportUpdateYears();
