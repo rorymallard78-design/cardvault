@@ -394,7 +394,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="cv-export-fixed-row" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
     <button type="button" class="btn-sm cv-export-fixed-button" onclick="cvExportAction('inventory')">⬇ Export CSV</button>
     <button type="button" class="btn-sm cv-export-fixed-button" onclick="document.getElementById('cv-import-file').click()">⬆ Import Spreadsheet</button>
-    <input type="file" id="cv-import-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="cviFile(event)">
+    <input type="file" id="cv-import-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="cvimpFile(event)">
   </div>
   <div class="search-row">
     <input class="search-input" id="inv-search" placeholder="Search player, set, year..." oninput="renderInventory()">
@@ -2512,7 +2512,7 @@ function clearAllData(){
     showPage(_startPage);
   }
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=sheet-import-v1"];
+  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=import-isolated-v2"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
