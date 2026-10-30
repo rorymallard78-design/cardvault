@@ -407,6 +407,8 @@ async function cvxPerformRestore(){
   // The entire previous state, including receipt and card photos, is captured before making any changes.
   const [photos,receiptBackup]=await Promise.all([dbGetAllPhotos(),cvrExport()]);
   previous={inventory, soldHistory, photos,receiptBackup,grading:cvgExport(),storage:copyStorage()};
+  // Persist rollback checkpoint before modifying ANY photo store or local metadata.
+  await cvRecoveryBegin();
   // Apply photo stores first. Metadata remains backed up in memory until all writes complete.
   await replaceCardPhotos(data.photos);
   await cvrRestore(data);
@@ -414,9 +416,15 @@ async function cvxPerformRestore(){
   inventory=data.inventory.map(x=>({...x}));
   soldHistory=data.soldHistory.map(x=>({...x}));
   save();
+  await cvRecoveryCommit();
   CVX.pendingBackup=null;
   location.reload();
  }catch(err){
+  // Crash-safe durable rollback; the checkpoint survives reloads if rollback itself fails.
+  try {
+   const recovered=await cvRecoveryRollback();
+   if(recovered){inventory=previous?.inventory||inventory;soldHistory=previous?.soldHistory||soldHistory;}
+  }catch(recoveryError){console.error('Persistent recovery pending on next startup',recoveryError);}
   if(previous){
    const errors=[];
    inventory=previous.inventory;soldHistory=previous.soldHistory;
