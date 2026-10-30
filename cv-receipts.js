@@ -216,37 +216,42 @@ function cvrBuyRemove(i){
   cvrBuyForm();
 }
 function cvrBuyForm(){
-  const receipt=CVR.items.find(x=>x.id===CVR.activeId);
-  if(!receipt)return;
-  se("cvr-modal-title").textContent="Process Purchase";
-  const photos=CVR.receiptPhotos||[];
-  const photoOptions=photos.map((_,i)=>'<option value="'+i+'">Receipt photo '+(i+1)+'</option>').join("");
-  const field=(i,key,label,placeholder="")=>'<div class="form-group"><label class="form-label">'+label+'</label><input id="cvr-buy-'+i+'-'+key+'" class="form-input" value="'+cvxEsc(CVR.buyRows[i][key]||"")+'" placeholder="'+placeholder+'"></div>';
-  const rows=CVR.buyRows.map((row,i)=>{
-    const src=cvrRowPhoto(row);
-    const sportOptions=["Other","Basketball","Baseball","Football","Hockey"].map(s=>'<option'+(s===(row.sport||"Other")?" selected":"")+'>'+s+'</option>').join("");
-    const condOptions=["Raw","NM-MT","EX-MT","VG-EX","Graded"].map(s=>'<option'+(s===(row.condition||"Raw")?" selected":"")+'>'+s+'</option>').join("");
-    return '<div class="cvr-section"><div class="cvr-flex" style="align-items:center;justify-content:space-between"><b>Card '+(i+1)+'</b><button class="btn-sm" onclick="cvrBuyRemove('+i+')">Remove</button></div>'+
-    '<div style="display:flex;gap:10px;align-items:center;margin:9px 0"><img id="cvr-card-thumb-'+i+'" src="'+(src||"")+'" alt="Assigned card" style="width:78px;height:100px;object-fit:contain;border-radius:7px;background:var(--bg4);border:1px solid var(--border2)"><div style="flex:1;min-width:0">'+
-    '<label class="form-label">Use receipt photo</label><select id="cvr-photo-source-'+i+'" class="form-select" onchange="cvrAssignReceiptPhoto('+i+',this.value)"><option value="-1">No receipt photo</option>'+photoOptions+'</select>'+
-    '<div class="cvr-flex" style="margin-top:7px"><button class="btn-sm" onclick="se(\'cvr-photo-camera-'+i+'\').click()">📸 Camera</button><button class="btn-sm" onclick="se(\'cvr-photo-upload-'+i+'\').click()">🖼 Upload</button></div>'+
-    '<input id="cvr-photo-camera-'+i+'" type="file" accept="image/*" capture="environment" style="display:none" onchange="cvrCardUpload('+i+',event)"><input id="cvr-photo-upload-'+i+'" type="file" accept="image/*" style="display:none" onchange="cvrCardUpload('+i+',event)">'+
-    '<button id="cvr-scan-'+i+'" class="btn-sm" style="margin-top:8px" onclick="cvrScan('+i+')">✨ Scan Card</button></div></div>'+
-    '<div id="cvr-scan-state-'+i+'" class="cvr-mini" style="margin:0 0 9px;color:var(--gold)">'+cvxEsc(row.scanStatus||"Review or scan this card")+'</div>'+
-    field(i,"player","Player *","Player name")+
-    '<div class="cvr-flex">'+field(i,"year","Year","2025")+'<div class="form-group"><label class="form-label">Sport</label><select class="form-select" id="cvr-buy-'+i+'-sport">'+sportOptions+'</select></div></div>'+
-    field(i,"team","Team")+field(i,"set","Set / Brand","Topps Chrome")+
-    '<div class="cvr-flex">'+field(i,"cardNum","Card #")+field(i,"variation","Parallel / Variation")+'</div>'+
-    '<div class="cvr-flex">'+field(i,"printRun","Print Run")+field(i,"grade","Grade (if graded)")+'</div>'+
-    '<div class="cvr-flex">'+field(i,"certNumber","Cert Number")+'<div class="form-group"><label class="form-label">Condition</label><select class="form-select" id="cvr-buy-'+i+'-condition">'+condOptions+'</select></div></div>'+
-    '<div class="form-group"><label class="form-label">Allocated Cost ($) — optional</label><input class="form-input" type="number" min="0" step=".01" id="cvr-buy-'+i+'-cost" value="'+cvxEsc(row.cost??"")+'" placeholder="Split remaining amount evenly"></div></div>';
-  }).join("");
-  se("cvr-body").innerHTML='<div class="cvr-mini">Receipt '+fmt(receipt.amount)+' · '+cvrDate(receipt.at)+'</div>'+
-    '<div class="cvr-mini" style="margin:10px 0">Assign a photo to each card, or take a new one. AI can prefill fields when configured; review parallels and grades before saving. Group photos may require separate close-ups.</div>'+
-    rows+'<button class="btn btn-secondary" onclick="cvrBuyAdd()">+ Another Card</button>'+
-    '<div class="cvr-mini" style="margin:9px 0">Unallocated purchase cost is divided evenly. All cards remain unpriced until you set a market value.</div>'+
-    '<div id="cvr-buy-error" style="color:var(--red);font-size:12px;margin:10px 0"></div><button id="cvr-buy-save" class="btn btn-primary" onclick="cvrBuyPost()">✅ Add Cards to Inventory</button><button class="btn btn-secondary" onclick="cvrView(CVR.activeId)">← Back to Receipt</button>';
-  CVR.buyRows.forEach((r,i)=>{const el=se("cvr-photo-source-"+i);if(el)el.value=String(r.sourceIndex??-1);});
+ const receipt=CVR.items.find(x=>x.id===CVR.activeId);
+ if(!receipt)return;
+ se("cvr-modal-title").textContent="Process Purchase · Photos + AI";
+ const photos=CVR.receiptPhotos||[];
+ const photoOptions=photos.map((_,i)=>'<option value="'+i+'">Receipt Photo '+(i+1)+'</option>').join("");
+ const fld=(i,key,label,placeholder="")=>'<div class="form-group"><label class="form-label">'+label+'</label><input id="cvr-buy-'+i+'-'+key+'" class="form-input" value="'+cvxEsc(CVR.buyRows[i][key]||"")+'" placeholder="'+placeholder+'"></div>';
+ const rows=CVR.buyRows.map((row,i)=>{
+  const source=cvrRowPhoto(row);
+  const preview=source?'<img alt="Assigned card photo" src="'+source+'" style="width:100%;height:100%;object-fit:contain">':'<span style="color:var(--muted);font-size:12px;text-align:center;padding:8px">No photo<br>selected</span>';
+  const sportOptions=["Other","Basketball","Baseball","Football","Hockey"].map(s=>'<option'+(s===(row.sport||"Other")?" selected":"")+'>'+s+'</option>').join("");
+  const condOptions=["Raw","NM-MT","EX-MT","VG-EX","Graded"].map(s=>'<option'+(s===(row.condition||"Raw")?" selected":"")+'>'+s+'</option>').join("");
+  const thumbnails=photos.map((p,k)=>'<button type="button" style="border:2px solid '+(row.sourceIndex===k&&!row.photoData?'var(--gold)':'var(--border2)')+';border-radius:9px;background:var(--bg);padding:3px;flex-shrink:0;width:70px;cursor:pointer" onclick="cvrAssignReceiptPhoto('+i+',\''+k+'\')" aria-label="Use receipt photo '+(k+1)+'"><img src="'+p+'" alt="Receipt photo '+(k+1)+'" style="width:60px;height:65px;object-fit:cover;border-radius:5px"><div style="font-size:10px;color:var(--text2)">Photo '+(k+1)+'</div></button>').join("");
+  return '<div class="cvr-section" style="border-color:var(--gold);margin:15px 0;padding:12px">'+
+   '<div style="font-size:16px;font-weight:700;color:var(--gold);margin-bottom:12px">CARD '+(i+1)+' — PHOTO & SCAN</div>'+
+   '<div style="display:flex;align-items:flex-start;gap:12px"><div style="width:100px;height:133px;background:var(--bg4);border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+preview+'</div>'+
+   '<div style="flex:1;min-width:0"><div class="cvr-mini" style="margin-bottom:9px">Choose a receipt photo, or take/upload a separate close-up of this card.</div>'+
+   '<div class="cvr-flex" style="flex-wrap:wrap"><button class="btn-sm gold" onclick="se(\'cvr-photo-camera-'+i+'\').click()">📸 Take Photo</button><button class="btn-sm gold" onclick="se(\'cvr-photo-upload-'+i+'\').click()">🖼 Upload Photo</button></div>'+
+   '<input id="cvr-photo-camera-'+i+'" type="file" accept="image/*" capture="environment" style="display:none" onchange="cvrCardUpload('+i+',event)">'+
+   '<input id="cvr-photo-upload-'+i+'" type="file" accept="image/*" style="display:none" onchange="cvrCardUpload('+i+',event)"></div></div>'+
+   (photos.length?'<div style="font-weight:600;font-size:12px;margin-top:10px">Or tap a photo from this receipt:</div><div style="display:flex;gap:7px;overflow-x:auto;margin:8px 0">'+thumbnails+'</div>':'<div class="cvr-mini" style="margin:9px 0">No original receipt photos attached. Add a card photo above.</div>')+
+   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><button id="cvr-scan-'+i+'" class="btn btn-primary" style="margin:0;flex:1" onclick="cvrScan('+i+')">✨ Identify Card From Photo</button><button class="btn-sm" style="flex-shrink:0" onclick="cvrBuyRemove('+i+')">Remove</button></div>'+
+   '<div id="cvr-scan-state-'+i+'" class="cvr-mini" style="margin-bottom:10px">'+cvxEsc(row.scanStatus||(getKey("ai")?"AI will suggest details; review before saving.":"Add an Anthropic key in Settings for AI; manual entry works now."))+'</div>'+
+   '<div style="border-top:1px solid var(--border2);padding-top:12px;margin-top:10px;font-size:12px;font-weight:700;color:var(--gold)">REVIEW IDENTIFIED CARD</div>'+
+   fld(i,"player","Player *","Player name")+
+   '<div class="cvr-flex">'+fld(i,"year","Year","2025")+'<div class="form-group"><label class="form-label">Sport</label><select class="form-select" id="cvr-buy-'+i+'-sport">'+sportOptions+'</select></div></div>'+
+   fld(i,"team","Team")+fld(i,"set","Set / Brand","Topps Chrome")+
+   '<div class="cvr-flex">'+fld(i,"cardNum","Card #")+fld(i,"variation","Parallel / Variation")+'</div>'+
+   '<div class="cvr-flex">'+fld(i,"printRun","Print Run")+fld(i,"grade","Grade")+'</div>'+
+   '<div class="cvr-flex">'+fld(i,"certNumber","Cert Number")+'<div class="form-group"><label class="form-label">Condition</label><select class="form-select" id="cvr-buy-'+i+'-condition">'+condOptions+'</select></div></div>'+
+   '<div class="form-group"><label class="form-label">Allocated Purchase Cost ($) — optional</label><input class="form-input" type="number" min="0" step=".01" id="cvr-buy-'+i+'-cost" value="'+cvxEsc(row.cost??"")+'" placeholder="Split remaining amount evenly"></div></div>';
+ }).join("");
+ se("cvr-body").innerHTML='<div style="padding:10px;border-radius:8px;background:var(--gold-dim);font-size:13px;margin-bottom:12px">📷 <b>Step 1:</b> Pick a photo for each card. &nbsp;✨ <b>Step 2:</b> Identify it with AI or enter details manually. &nbsp;✅ <b>Step 3:</b> Save cards to inventory.</div>'+
+  '<div class="cvr-mini">Receipt total '+fmt(receipt.amount)+' · '+cvrDate(receipt.at)+' · '+photos.length+' receipt photo(s) · <b>Photo workflow v2</b></div>'+
+  rows+'<button class="btn btn-secondary" onclick="cvrBuyAdd()">+ Another Card</button>'+
+  '<div class="cvr-mini" style="margin:10px 0">Blank cost amounts split the remaining total evenly. Unpriced cards are flagged Needs Pricing.</div>'+
+  '<div id="cvr-buy-error" style="color:var(--red);font-size:12px;margin:10px 0"></div><button id="cvr-buy-save" class="btn btn-primary" onclick="cvrBuyPost()">✅ Save Cards to Inventory</button><button class="btn btn-secondary" onclick="cvrView(CVR.activeId)">← Back to Receipt</button>';
 }
 function cvrCosts(total,inputs){
  let remain=Math.round(total*100),blanks=0;
@@ -373,51 +378,46 @@ async function cvrCardUpload(i,event){
 }
 
 async function cvrAutoScan(){
-  const entries=[...CVR.buyRows];
-  for(let i=0;i<entries.length;i++){
-    if(CVR.buyRows[i]===entries[i]&&cvrRowPhoto(entries[i]))await cvrScan(i);
-  }
+ const queue=CVR.buyRows.map((row,i)=>({row,i}));
+ for(const {row,i} of queue){
+  if(CVR.activeId==null||!CVR.buyRows[i])break;
+  if(cvrRowPhoto(CVR.buyRows[i]))await cvrScan(i);
+ }
 }
-
 async function cvrScan(i){
-  const row=CVR.buyRows[i],photo=row?cvrRowPhoto(row):null;
-  if(!photo){toast("Choose a photo before scanning","error");return;}
-  if(!getKey("ai")){
-    cvrScanMessage(i,"AI scanning requires an Anthropic key in Settings. You can enter details manually.");
-    return;
+ const current=CVR.buyRows[i],photo=current?cvrRowPhoto(current):null;
+ if(!photo){toast("Choose a photo first","error");cvrScanMessage(i,"Choose a receipt photo or upload a card photo, then tap Identify.");return;}
+ if(!getKey("ai")){cvrScanMessage(i,"AI identification needs an Anthropic API key in Settings. You can enter the details manually.");return;}
+ if(current.scanBusy)return;
+ current.scanBusy=true;
+ const button=se("cvr-scan-"+i);if(button){button.disabled=true;button.textContent="Analyzing…";}
+ cvrScanMessage(i,"Analyzing photo…");
+ try{
+  const image=await compressImage(photo,800,0.7);
+  const result=await scanCardPhoto(image);
+  const active=CVR.buyRows[i];
+  if(!active||cvrRowPhoto(active)!==photo||CVR.activeId==null)return;
+  for(const key of ["player","year","team","set","cardNum","variation","printRun","grade","certNumber","sport","condition"]){
+   const value=String(result[key]??"").trim();
+   if(!value)continue;
+   const el=se("cvr-buy-"+i+"-"+key);if(!el)continue;
+   if(key==="sport"){
+    const allowed=["Other","Basketball","Baseball","Football","Hockey"].find(x=>x.toLowerCase()===value.toLowerCase());
+    if(allowed&&(el.value==="Other"||!el.value))el.value=allowed;
+   }else if(key==="condition"){
+    const allowed=["Raw","NM-MT","EX-MT","VG-EX","Graded"].find(x=>x.toLowerCase()===value.toLowerCase());
+    if(allowed&&(el.value==="Raw"||!el.value))el.value=allowed;
+   }else if(!el.value)el.value=value;
   }
-  if(row.scanBusy)return;
-  row.scanBusy=true;
-  const btn=se("cvr-scan-"+i);if(btn)btn.disabled=true;
-  cvrScanMessage(i,"Analyzing card photo…");
-  try{
-    const image=await compressImage(photo,800,0.7);
-    const result=await scanCardPhoto(image);
-    if(CVR.buyRows[i]!==row||cvrRowPhoto(row)!==photo)return;
-    for(const key of ["player","year","team","set","cardNum","variation","printRun","grade","certNumber","sport","condition"]){
-      const value=String(result[key]??"").trim();
-      if(!value)continue;
-      const el=se("cvr-buy-"+i+"-"+key);
-      if(!el)continue;
-      if(key==="sport"&&el.value==="Other"){
-        const found=["Other","Basketball","Baseball","Football","Hockey"].find(v=>v.toLowerCase()===value.toLowerCase());
-        if(found)el.value=found;
-      }else if(key==="condition"&&(el.value==="Raw"||!el.value)){
-        const found=["Raw","NM-MT","EX-MT","VG-EX","Graded"].find(v=>v.toLowerCase()===value.toLowerCase());
-        if(found)el.value=found;
-      }else if(!el.value){el.value=value;}
-    }
-    if(result.grade&&se("cvr-buy-"+i+"-condition").value==="Raw")se("cvr-buy-"+i+"-condition").value="Graded";
-    cvrBuyRead();
-    cvrScanMessage(i,result.player?"AI suggestions added — verify card details and parallel.":"Could not identify confidently — enter details manually.");
-  }catch(err){
-    cvrScanMessage(i,"AI scan failed: "+err.message+". Enter details manually or retry.");
-  }finally{
-    row.scanBusy=false;
-    if(btn&&btn.isConnected)btn.disabled=false;
-  }
+  if(result.grade&&se("cvr-buy-"+i+"-condition")?.value==="Raw")se("cvr-buy-"+i+"-condition").value="Graded";
+  cvrBuyRead();
+  cvrScanMessage(i,result.player?"AI suggestions populated — verify the exact card, parallel, and grade.":"AI couldn't identify this card confidently; enter details manually.");
+ }catch(e){cvrScanMessage(i,"AI scan failed: "+e.message+". Retry or enter the details manually.");}
+ finally{
+  const row=CVR.buyRows[i];if(row)row.scanBusy=false;
+  const b=se("cvr-scan-"+i);if(b){b.disabled=false;b.textContent="✨ Identify Card From Photo";}
+ }
 }
-
 function cvrScanMessage(i,message){
   const row=CVR.buyRows[i];if(row)row.scanStatus=message;
   const el=se("cvr-scan-state-"+i);if(el)el.textContent=message;
