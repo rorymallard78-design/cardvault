@@ -383,22 +383,60 @@ async function cvxPerformRestore(){
  const data=CVX.pendingBackup;
  if(!data){toast('Choose a backup first','error');return;}
  if(se('cvx-restore-phrase')?.value!=='RESTORE'){toast('Type RESTORE to confirm','error');return;}
+ if(CVX.restoring)return;
+ CVX.restoring=true;
+ const button=se('cvx-restore-confirm')?.querySelector('.btn-danger');if(button){button.disabled=true;button.textContent='Restoring and validating…';}
+ let previous=null;
+ const copyStorage=()=>{
+  const keys=[KEYS.inv,KEYS.sold,KEYS.backup,KEYS.backupSold,CVR.storeKey,CVG.key];
+  return Object.fromEntries(keys.map(k=>[k,localStorage.getItem(k)]));
+ };
+ const restoreStorage=values=>{
+  for(const [k,v] of Object.entries(values))if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);
+ };
+ const replaceCardPhotos=async photos=>{
+  const db=await openPhotoDB();
+  await new Promise((resolve,reject)=>{
+   const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');store.clear();
+   for(const [id,photo] of Object.entries(photos))if(photo)store.put({id:Number(id)||id,data:photo});
+   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+ };
  try{
-  const db=await openPhotoDB();const previousPhotos=await dbGetAllPhotos();
-  const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');store.clear();
-  Object.entries(data.photos).forEach(([id,photo])=>{if(photo)store.put({id:Number(id)||id,data:photo});});
-  await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
-  const oldInv=inventory,oldSold=soldHistory; inventory=data.inventory;soldHistory=data.soldHistory;
-  try{save();}catch(err){
-   inventory=oldInv;soldHistory=oldSold;
-   const rollback=db.transaction('photos','readwrite'),obj=rollback.objectStore('photos');obj.clear();Object.entries(previousPhotos).forEach(([id,photo])=>obj.put({id:Number(id)||id,data:photo}));
-   throw err;
-  }
-  if(typeof cvrRestore==='function')await cvrRestore(data);
-  if(typeof cvgRestore==='function')cvgRestore(data);
+  cvgValidateBackup(data);cvrCheckBackup(data);
+  // The entire previous state, including receipt and card photos, is captured before making any changes.
+  const [photos,receiptBackup]=await Promise.all([dbGetAllPhotos(),cvrExport()]);
+  previous={inventory, soldHistory, photos,receiptBackup,grading:cvgExport(),storage:copyStorage()};
+  // Apply photo stores first. Metadata remains backed up in memory until all writes complete.
+  await replaceCardPhotos(data.photos);
+  await cvrRestore(data);
+  cvgRestore(data);
+  inventory=data.inventory.map(x=>({...x}));
+  soldHistory=data.soldHistory.map(x=>({...x}));
+  save();
   CVX.pendingBackup=null;
   location.reload();
- }catch(err){toast('Restore failed: '+err.message,'error');const p=se('cvx-restore-confirm');if(p)p.textContent='Restore failed: '+err.message;}
+ }catch(err){
+  if(previous){
+   const errors=[];
+   inventory=previous.inventory;soldHistory=previous.soldHistory;
+   try{await replaceCardPhotos(previous.photos);}catch(e){errors.push('card photos: '+e.message);}
+   try{await cvrRestore({receipts:previous.receiptBackup.receipts,receiptPhotos:previous.receiptBackup.receiptPhotos});}catch(e){errors.push('receipt photos: '+e.message);}
+   try{cvgRestore({grading:previous.grading});}catch(e){errors.push('grading: '+e.message);}
+   try{restoreStorage(previous.storage);}catch(e){errors.push('local data: '+e.message);}
+   if(errors.length){
+    const msg='Restore failed AND rollback was incomplete ('+errors.join('; ')+'). Do not add or delete cards. Export the current backup and recover from your saved file.';
+    console.error(msg,err);toast(msg,'error');
+    const panel=se('cvx-restore-confirm');if(panel)panel.textContent=msg;
+   }else{
+    toast('Restore cancelled and previous data restored: '+err.message,'error');
+    const panel=se('cvx-restore-confirm');if(panel)panel.textContent='Restore failed. Prior records and photos were rolled back: '+err.message;
+   }
+  }else{
+   toast('Restore did not start: '+err.message,'error');
+   const panel=se('cvx-restore-confirm');if(panel)panel.textContent='Restore did not start: '+err.message;
+  }
+ }finally{CVX.restoring=false;if(button&&button.isConnected){button.disabled=false;button.textContent='Replace Beta Data';}}
 }
 
 function cvxClearAllData(){
