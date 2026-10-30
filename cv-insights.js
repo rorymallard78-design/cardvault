@@ -67,7 +67,10 @@ function cviPct(n,d){return d>0?(n/d*100).toFixed(1)+'%':'N/A';}
 function cviMetric(label,value,detail,signal=0){
  const keys={'Verified Net Profit':'profit','Realized ROI':'roi','Win Rate':'wins','Net Sale Proceeds':'proceeds','Unrealized P&L':'unreal','Unrealized ROI':'unrealroi','Priced Card Value':'value','Need Review':'review'};
  const key=keys[label]||'proceeds';
- return '<button type="button" class="cvi-metric cvi-tile" onclick="cviDrill(\''+key+'\')" aria-label="View '+label+' details"><span class="cvi-caption">'+label+'</span><span class="cvi-number" style="'+(signal?'color:'+(signal>0?'var(--green)':'var(--red)'):'')+'">'+value+'</span><span class="cvi-caption">'+detail+' <b style="color:var(--gold)">›</b></span></button>';
+ return '<button type="button" class="cvi-metric cvi-tile" style="display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto 1fr;gap:8px;align-content:start;justify-items:stretch;box-sizing:border-box;width:100%;min-width:0;height:100%;white-space:normal;vertical-align:top" onclick="cviDrill(\''+key+'\')" aria-label="View '+label+' details">'+
+ '<div class="cvi-tile-label" style="display:block;width:100%;font-size:12px;line-height:1.35;white-space:normal;overflow-wrap:break-word;color:var(--text2)">'+label+'</div>'+
+ '<div class="cvi-tile-value" style="display:block;width:100%;font-family:DM Mono,monospace;font-size:clamp(14px,4vw,18px);font-weight:700;line-height:1.22;letter-spacing:-.45px;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;'+(signal?'color:'+(signal>0?'var(--green)':'var(--red)')+';':'')+'">'+value+'</div>'+
+ '<div class="cvi-tile-foot" style="display:block;width:100%;font-size:10px;line-height:1.45;white-space:normal;overflow-wrap:break-word;color:var(--text2);align-self:end">'+detail+' <span style="color:var(--gold);font-weight:700">›</span></div></button>';
 }
 function cviBreakdown(label,items){
  return '<details class="cvi-section"><summary>'+label+'</summary>'+ (items.length?items.slice(0,12).map(v=>'<div class="cvi-line"><span>'+cvxEsc(v.name)+' <small>('+v.count+')</small></span><b style="color:'+(v.profit>=0?'var(--green)':'var(--red)')+'">'+cviPL(v.profit)+'</b></div>').join(''):'<p class="cvi-caption">No recorded sales match this selection.</p>')+'</details>';
