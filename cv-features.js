@@ -1,6 +1,6 @@
 'use strict';
 // CardVault development extension - changes isolated from original code.
-var CVX={multi:false,selected:new Set(),saleIds:new Set(),matchLog:[],shareScope:'all',sharePlayer:''};
+var CVX={multi:false,selected:new Set(),saleIds:new Set(),matchLog:[],shareScope:'all',sharePlayer:'',sharePrices:true};
 function cvxEsc(v){return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 function cvxInit(){
@@ -274,8 +274,9 @@ function cvxRenderShareMenu(){
  se('share-body').innerHTML='<div class="form-group"><label class="form-label">Which cards to share?</label><select id="cvx-share-scope" class="form-select" onchange="CVX.shareScope=this.value;cvxRenderShareMenu()">'+
  ['all','selected','player'].map(k=>'<option value="'+k+'"'+(CVX.shareScope===k?' selected':'')+'>'+({all:'Entire Inventory',selected:'Selected Cards ('+CVX.selected.size+')',player:'Player Folder'}[k])+'</option>').join('')+'</select></div>'+
  (CVX.shareScope==='player'?'<div class="form-group"><label class="form-label">Player</label><select id="cvx-share-player" class="form-select" onchange="CVX.sharePlayer=this.value">'+sel('','Choose a player')+players.map(p=>sel(p,p)).join('')+'</select></div>':'')+
- '<label style="display:flex;gap:9px;align-items:center;margin:10px 0 16px;font-size:13px"><input type="checkbox" id="cvx-share-prices" checked style="accent-color:var(--gold)"> Show individual card values</label>'+
+ '<label style="display:flex;gap:9px;align-items:center;margin:10px 0 16px;font-size:13px"><input type="checkbox" id="cvx-share-prices" '+(CVX.sharePrices?'checked':'')+' onchange="CVX.sharePrices=this.checked" style="accent-color:var(--gold)"> Show individual card values</label>'+
  '<div class="cvx-mini" style="margin-bottom:10px">Total collection value and purchase costs are never shared. Shared links are snapshots and do not update automatically.</div>'+
+ '<button class="btn btn-secondary" onclick="cvxPreviewShare()">👁 Preview Shared View</button>'+
  '<button class="btn btn-primary" onclick="cvxGenerateShare()">🔗 Generate Share Link</button>';
 }
 function cvxShareCards(){
@@ -283,18 +284,47 @@ function cvxShareCards(){
  if(CVX.shareScope==='player')return inventory.filter(c=>c.player===CVX.sharePlayer);
  return inventory.slice();
 }
+function cvxShareSnapshot(cards,includePrices){
+ return cards.map(c=>{
+  const copy={id:c.id,player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,cardNum:c.cardNum,variation:c.variation,printRun:c.printRun,condition:c.condition,grade:c.grade,certNumber:c.certNumber};
+  if(includePrices) copy.value=c.value;
+  if(c.photo)copy.photo=c.photo;
+  return copy;
+ });
+}
+function cvxPreviewShare(){
+ const cards=cvxShareCards();
+ if(!cards.length){toast('Choose cards to preview first','error');return;}
+ const snapshot=cvxShareSnapshot(cards,CVX.sharePrices);
+ closeModal('modal-share');
+ _renderSharedCards(snapshot);
+ const view=se('shared-view');
+ let banner=se('cvx-preview-controls');
+ if(!banner){
+  banner=document.createElement('div');banner.id='cvx-preview-controls';
+  banner.style.cssText='padding:10px 16px;background:var(--gold-dim);border-bottom:1px solid var(--gold);';
+  banner.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">PREVIEW ONLY — No link created or data uploaded</div><button class="btn-sm gold" onclick="cvxEndPreview()">← Back to CardVault</button>';
+  view.prepend(banner);
+ }
+ banner.style.display='block';
+}
+function cvxEndPreview(){
+ closeSharedModal();
+ const banner=se('cvx-preview-controls');if(banner)banner.style.display='none';
+ se('shared-view').style.display='none';se('main-app').style.display='';
+ openShareModal();
+}
+
 async function cvxGenerateShare(){
  const cards=cvxShareCards(),token=getKey('gist');
  if(!cards.length){toast('No cards in this selection','error');return;}
  if(!token){toast('Add your GitHub Gist token in Settings first','error');return;}
- const prices=!!se('cvx-share-prices')?.checked;
+ const prices=CVX.sharePrices;
  se('share-body').innerHTML='<div class="market-empty">Preparing '+cards.length+' cards and photos…</div>';
  try{
-  const snapshot=await Promise.all(cards.map(async c=>{
-   const copy={id:c.id,player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,cardNum:c.cardNum,variation:c.variation,printRun:c.printRun,condition:c.condition,grade:c.grade,certNumber:c.certNumber};
-   if(prices)copy.value=c.value;
-   if(c.photo)copy.photo=await _compressForShare(c.photo,40*1024);
-   return copy;
+  const snapshot=await Promise.all(cvxShareSnapshot(cards,prices).map(async card=>{
+   if(card.photo)card.photo=await _compressForShare(card.photo,40*1024);
+   return card;
   }));
   const r=await fetch('https://api.github.com/gists',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/vnd.github+json','Authorization':'Bearer '+token},body:JSON.stringify({description:'CardVault shared collection',public:false,files:{'collection.json':{content:JSON.stringify(snapshot)}}})});
   if(!r.ok)throw new Error('GitHub '+r.status+' '+(await r.text()).slice(0,150));
