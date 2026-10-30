@@ -2255,7 +2255,7 @@ function openSharedCard(idx) {
       <div style="font-size:20px;font-weight:700;margin-bottom:4px">${safe(c.player)}</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${meta}</div>
       ${variation}${printRun}${grade}${cond}
-      <div style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px">${fmt(c.value)}</div>
+      ${c.value!=null?`<div style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px">${fmt(c.value)}</div>`:""}
       ${notes}
     </div>`;
   se('shared-modal').style.display='block';
@@ -2272,7 +2272,7 @@ function _renderSharedCards(cards) {
   se('main-app').style.display='none';
   se('shared-view').style.display='block';
   const total = cards.reduce((s,c)=>s+(c.value||0),0);
-  se('shared-body').innerHTML = `<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · ${fmt(total)} total value · <span style="color:var(--muted)">Tap a card for details</span></div>`
+  se('shared-body').innerHTML = `<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · <span style="color:var(--muted)">Tap a card for details</span></div>`
     + cards.map((c,i)=>{
       const hasPhoto = c.photo && c.photo !== '[photo]';
       const thumb = hasPhoto
@@ -2283,7 +2283,7 @@ function _renderSharedCards(cards) {
         <div class="card-thumb" style="${hasPhoto?'padding:0;overflow:hidden;':'display:flex;align-items:center;justify-content:center;'}">${thumb}</div>
         <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
         <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
-        <div class="card-prices"><div class="price-val">${fmt(c.value)}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
+        <div class="card-prices">${c.value!=null?`<div class="price-val">${fmt(c.value)}</div>`:""}<div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
       </div>`;
     }).join('');
 }
