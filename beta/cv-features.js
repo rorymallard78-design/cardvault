@@ -352,7 +352,7 @@ async function cvxExportBackup(){
   const photos=await dbGetAllPhotos();
   inventory.forEach(c=>{if(c.photo&&!photos[c.id])photos[c.id]=c.photo;});
   const receiptData=typeof cvrExport==='function'?await cvrExport():{receipts:[],receiptPhotos:{}};
-  const data={format:'CardVaultFullBackup',version:1,exportedAt:new Date().toISOString(),inventory:inventory.map(c=>({...c})),soldHistory:soldHistory.map(c=>({...c})),photos,...receiptData};
+  const data={format:'CardVaultFullBackup',version:1,exportedAt:new Date().toISOString(),inventory:inventory.map(c=>({...c})),soldHistory:soldHistory.map(c=>({...c})),photos,...receiptData,grading:typeof cvgExport==="function"?cvgExport():[]};
   const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
   const a=document.createElement('a');a.href=url;a.download='cardvault-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000);toast('Backup export created','success');
@@ -366,9 +366,10 @@ async function cvxImportBackup(e){
   if(data.format!=='CardVaultFullBackup'||data.version!==1||!Array.isArray(data.inventory)||!Array.isArray(data.soldHistory)||!data.photos||typeof data.photos!=='object'||Array.isArray(data.photos))throw new Error('Invalid CardVault backup');
   if(!data.inventory.every(c=>c&&typeof c.player==='string'&&Number.isSafeInteger(Number(c.id)))||!data.soldHistory.every(c=>c&&typeof c.player==='string'))throw new Error('Invalid card or sale data');
   if(typeof cvrCheckBackup==='function')cvrCheckBackup(data);
+  if(typeof cvgValidateBackup==='function')cvgValidateBackup(data);
   CVX.pendingBackup=data;
   panel.style.display='block';panel.innerHTML="<div style=\"font-weight:700;color:var(--gold);margin-bottom:8px\">Review Backup Before Restoring</div><div class=\"cvx-mini\" id=\"cvx-restore-summary\" style=\"margin-bottom:12px\"></div><div class=\"cvx-mini\">Type RESTORE to confirm replacing this beta inventory and sold history:</div><input class=\"form-input\" id=\"cvx-restore-phrase\" placeholder=\"RESTORE\" autocomplete=\"off\"><div style=\"display:flex;gap:8px;margin-top:10px\"><button class=\"btn btn-danger\" onclick=\"cvxPerformRestore()\">Replace Beta Data</button><button class=\"btn btn-secondary\" onclick=\"cvxCancelRestore()\">Cancel</button></div>";
-  se('cvx-restore-summary').textContent='Backup: '+data.inventory.length+' inventory cards, '+data.soldHistory.length+' sales, '+Object.keys(data.photos).length+' card photos, '+(data.receipts?.length||0)+' receipts. Current: '+inventory.length+' inventory cards, '+soldHistory.length+' sales. This replaces the CURRENT TEST VAULT only.';
+  se('cvx-restore-summary').textContent='Backup: '+data.inventory.length+' inventory cards, '+data.soldHistory.length+' sales, '+Object.keys(data.photos).length+' card photos, '+(data.receipts?.length||0)+' receipts, '+(data.grading?.length||0)+' grading submissions. Current: '+inventory.length+' inventory cards, '+soldHistory.length+' sales. This replaces the CURRENT TEST VAULT only.';
  }catch(err){CVX.pendingBackup=null;panel.style.display='block';panel.textContent='Backup not accepted: '+err.message;toast('Invalid backup: '+err.message,'error');}
 }
 function cvxCancelRestore(){CVX.pendingBackup=null;const el=se('cvx-restore-confirm');if(el){el.style.display='none';el.textContent='';}}
@@ -388,6 +389,7 @@ async function cvxPerformRestore(){
    throw err;
   }
   if(typeof cvrRestore==='function')await cvrRestore(data);
+  if(typeof cvgRestore==='function')cvgRestore(data);
   CVX.pendingBackup=null;
   location.reload();
  }catch(err){toast('Restore failed: '+err.message,'error');const p=se('cvx-restore-confirm');if(p)p.textContent='Restore failed: '+err.message;}
