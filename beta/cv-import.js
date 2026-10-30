@@ -21,7 +21,9 @@ function cviMapped(headers){
  return mapped;
 }
 function cviNumber(raw){const s=String(raw??'').trim();if(!s)return null;const t=s.replace(/[$,\s]/g,'').replace(/^\((.*)\)$/,'-$1');const n=Number(t);if(!Number.isFinite(n)||n<0||n>100000000||Math.abs(n*100-Math.round(n*100))>0.001)throw Error('Invalid dollar amount: '+s);return Math.round(n*100)/100;}
+function cvmStrongIdentity(c){return Boolean(c.certNumber||(c.player&&c.year&&c.set));}
 function cviPrep(table,filename){
+ if(table.length>5001)throw Error('Import up to 5,000 cards per file; split a larger spreadsheet.');
  if(!table||table.length<2)throw Error('Spreadsheet must have headers and at least one card.');
  const map=cviMapped(table[0]);if(map.player===undefined)throw Error('A Player or Name column is required.');
  const rows=[],warnings=[],seen=new Set();
@@ -32,7 +34,10 @@ function cviPrep(table,filename){
   if(!table[i].some(x=>String(x||'').trim()))continue;
   try{
    const player=get('player');if(!player)throw Error('Missing player');
-   const cost=cviNumber(get('cost')),grading=cviNumber(get('gradingCosts'))||0,value=cviNumber(get('value'));
+   const recorded=cviNumber(get('cost')),grading=cviNumber(get('gradingCosts'))||0,value=cviNumber(get('value'));
+   const costColumn=map.cost===undefined?'':cviNorm(table[0][map.cost]);
+   const purchaseOnly=['purchasecost','whatipaid','paid','pricepaid','acquisitioncost'].includes(costColumn);
+   const cost=purchaseOnly?(recorded===null?null:Math.round((recorded+grading)*100)/100):recorded;
    const basisRaw=get('basisStatus').toLowerCase();
    if(basisRaw&&!['known','free','estimated','unknown'].includes(basisRaw))throw Error('Unsupported basis status');
    if(cost!==null&&grading>cost)throw Error('Grading costs exceed total recorded cost');
@@ -40,7 +45,7 @@ function cviPrep(table,filename){
    if(status==='free'&&cost!==null&&cost!==grading)throw Error('Free acquisition conflicts with the recorded card cost');
    if(status==='known'&&!(cost>0))throw Error('Known basis needs a positive cost');
    const card={player,sport:get('sport')||'Other',year:get('year'),team:get('team'),set:get('set'),cardNum:get('cardNum'),variation:get('variation'),printRun:get('printRun'),condition:get('condition')||(get('grade')?'Graded':'Raw'),grade:get('grade'),certNumber:get('certNumber'),cost:cost||0,gradingCosts:grading,value:value||0,needsPricing:!(value>0),basisStatus:status,purchaseDate:get('purchaseDate'),notes:get('notes'),photo:null};
-   const fp=fingerprint(card),duplicate=owned.has(fp)||seen.has(fp);
+   const fp=fingerprint(card),hasIdentity=Boolean(cvmStrongIdentity(card)),duplicate=hasIdentity&&(owned.has(fp)||seen.has(fp));
    if(duplicate)warnings.push('Row '+(i+1)+': possible duplicate — '+player);
    seen.add(fp);rows.push({line:i+1,card,duplicate,include:!duplicate});
   }catch(e){warnings.push('Row '+(i+1)+': '+e.message);}
@@ -60,7 +65,7 @@ function cviConfirm(){
  const selected=CVImport.rows.filter((r,i)=>se('cv-import-check-'+i)?.checked);
  if(!selected.length){se('cv-import-error').textContent='Select at least one card.';return;}
  const previous=inventory,stamp=new Date().toISOString(),batchId='csv-'+Date.now();
- const cards=selected.map(r=>({...r.card,id:newId(),dateAdded:stamp,importBatchId:batchId,importFilename:CVImport.filename,importRow:r.line}));
+ const cards=selected.map((r,i)=>({...r.card,id:Math.max(Date.now(),inventory.reduce((m,c)=>Math.max(m,Number(c.id)||0),0)+1)+i,dateAdded:stamp,importBatchId:batchId,importFilename:CVImport.filename,importRow:r.line}));
  try{
   inventory=[...cards,...inventory];save();closeModal('cv-import-modal');renderInventory();renderDash();renderPlayers();updateHeader();toast('Imported '+cards.length+' cards without photos','success');
  }catch(err){inventory=previous;se('cv-import-error').textContent='Could not save: '+err.message;}
@@ -72,7 +77,10 @@ async function cviFile(event){
   const ext=file.name.split('.').pop().toLowerCase();let table;
   if(ext==='csv')table=cviCSV(await file.text());
   else if(['xlsx','xls'].includes(ext)){
-   if(typeof XLSX==='undefined')throw Error('Excel reader did not load. Save the file as CSV and try again.');
+   if(typeof XLSX==='undefined'){
+    await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';script.onload=resolve;script.onerror=()=>reject(Error('Excel reader unavailable. Export as CSV and try again.'));document.head.append(script);});
+   }
+   if(typeof XLSX==='undefined')throw Error('Excel reader unavailable. Export as CSV and try again.');
    const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false});
    if(!wb.SheetNames.length)throw Error('Workbook is empty.');
    table=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false,blankrows:false});
