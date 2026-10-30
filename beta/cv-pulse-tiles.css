@@ -50,3 +50,29 @@
 .pulse-summary-line{font-size:10px;color:var(--muted);margin:12px 0 2px}
 .pulse-footnote{font-size:10px;color:var(--muted);line-height:1.55;margin:9px 0 2px}
 @media(max-width:345px){.pulse-hub-visual{height:74px}.pulse-hub-text{padding:8px}.pulse-panel{padding:10px}.pulse-date-badge{width:42px;min-width:42px}.pulse-event .pulse-event-footer,.pulse-expanded{margin-left:52px}}
+
+/* High-contrast manufacturer tiles: keep brand marks readable on dark-mode phones. */
+.pulse-hub-grid>.pulse-hub-tile:nth-child(1) .pulse-hub-visual{
+ background:radial-gradient(circle at 75% 15%,#234f80 0,#142b4b 46%,#0a162a 100%);
+ color:#fff;
+}
+.pulse-hub-grid>.pulse-hub-tile:nth-child(2) .pulse-hub-visual{
+ background:radial-gradient(circle at 76% 15%,#962d39 0,#541b29 48%,#24141e 100%);
+ color:#fff;
+}
+.pulse-hub-grid>.pulse-hub-tile:nth-child(-n+2) .pulse-graphic-icon{
+ width:auto;min-width:64%;height:auto;min-height:54px;
+ padding:6px 12px;box-sizing:border-box;
+ background:rgba(255,255,255,.11);
+ border:1px solid rgba(255,255,255,.26);
+ box-shadow:0 7px 22px rgba(0,0,0,.23);
+ border-radius:13px;
+ color:#fff;
+ text-shadow:0 1px 4px rgba(0,0,0,.4);
+}
+.pulse-hub-grid>.pulse-hub-tile:nth-child(1) .pulse-graphic-icon{
+ border-bottom:3px solid #e6484b;
+}
+.pulse-hub-grid>.pulse-hub-tile:nth-child(2) .pulse-graphic-icon{
+ border-bottom:3px solid #ffd15d;
+}
