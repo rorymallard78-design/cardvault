@@ -122,7 +122,8 @@ function cvxOpenSale(ids){
 </div>
 <div class="form-group"><label class="form-label">Sale Notes</label><textarea id="cvx-sale-notes" class="form-textarea" placeholder="Buyer, lot details, etc."></textarea></div>
 <div id="cvx-sale-preview" class="setting-box" style="font-size:13px"></div>
-<div id="cvx-sale-error" role="alert" style="display:none;color:var(--red);background:var(--red-dim);border:1px solid var(--red);padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px"></div>\n<button id="cvx-save-sale-btn" type="button" class="btn btn-primary" onclick="cvxCommitSale()">✅ Confirm & Record Sale</button>`;
+<div id="cvx-sale-error" role="alert" style="display:none;color:var(--red);background:var(--red-dim);border:1px solid var(--red);padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px"></div>
+<button id="cvx-save-sale-btn" type="button" class="btn btn-primary" onclick="cvxCommitSale()">✅ Confirm & Record Sale</button>`;
   se('cvx-sale-date').value=cvxLocalISODate();
   cvxRenderSaleCandidates();
 }
@@ -190,7 +191,7 @@ function cvxCommitSale(){
     if(!Number.isFinite(p.gross)||p.gross<=0) return cvxSaleError('Enter a sale price greater than $0.');
     if(![p.fees,p.shipping,p.other].every(x=>Number.isFinite(x)&&x>=0)) return cvxSaleError('Fees, shipping and other expenses must be zero or greater.');
     if(p.net<0) return cvxSaleError('Expenses exceed the sale price. Please check the amounts.');
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return cvxSaleError('Choose a valid sale date.');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return cvxSaleError('Choose a valid sale date.');
     if(!confirm('Record sale of '+p.selected.length+' card(s) for '+fmt(p.gross)+' gross and '+fmt(p.net)+' net? These cards will move to Sold History.')) return;
     if(button){button.disabled=true;button.textContent='Saving sale…';}
     const weights=p.selected.map(c=>Math.max(0,Number(c.cost)||0));
