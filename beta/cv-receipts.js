@@ -266,3 +266,5 @@ async function cvrRestore(data){
   throw e;
  }
 }
+
+if(!new URLSearchParams(location.search).has("gist"))cvrStart();
