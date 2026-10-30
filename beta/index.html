@@ -317,6 +317,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .photo-strip-img{width:40px;height:56px;border-radius:4px;overflow:hidden;flex-shrink:0;}
 .photo-strip-img img{width:100%;height:100%;object-fit:cover;}
 .ai-badge{background:var(--green-dim);border:1px solid rgba(45,206,137,0.3);color:var(--green);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:auto;}
+/* Dedicated export controls do not share narrow mobile header space. */
+#page-inventory .sec-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:6px;row-gap:8px;align-items:center;min-width:0}
+#page-inventory .sec-header .sec-title{min-width:0;font-size:clamp(20px,6vw,26px);letter-spacing:1px}
+#page-inventory .sec-header .btn-sm{min-width:0;padding:9px 8px;font-size:12px;white-space:nowrap}
+#page-inventory .sec-header #cvx-select-btn{grid-column:3}
+#page-inventory .cv-export-fixed-row,#page-sold .cv-export-fixed-row{display:block;width:100%;margin:0 0 14px;min-width:0}
+#page-inventory .cv-export-fixed-button,#page-sold .cv-export-fixed-button{display:block;width:100%;padding:12px;text-align:center;box-sizing:border-box;white-space:normal}
+@media(max-width:390px){#page-inventory .sec-header{grid-template-columns:minmax(0,1fr) auto}#page-inventory .sec-header #cvx-select-btn{grid-column:2;grid-row:2}#page-inventory .sec-header .sec-title{grid-column:1;grid-row:1}}
 </style>
 </head>
 <body>
@@ -383,6 +391,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="sec-title">Inventory</div>
     <button class="btn-sm gold" onclick="openAddModal()">+ Add Card</button>
   </div>
+  <div class="cv-export-fixed-row">
+    <button type="button" class="btn-sm cv-export-fixed-button" onclick="cvExportAction('inventory')">⬇ Export Inventory CSV</button>
+  </div>
   <div class="search-row">
     <input class="search-input" id="inv-search" placeholder="Search player, set, year..." oninput="renderInventory()">
   </div>
@@ -410,6 +421,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <div class="page" id="page-sold">
   <div class="sec-header"><div class="sec-title">Sold History</div></div>
+  <div class="cv-export-fixed-row"><button type="button" class="btn-sm cv-export-fixed-button" onclick="cvExportAction('sales')">⬇ Export Sales CSV</button></div>
   <div class="sold-stats">
     <div class="sold-stat"><div class="sold-stat-val" id="s-count">0</div><div class="sold-stat-label">Sold</div></div>
     <div class="sold-stat"><div class="sold-stat-val" id="s-rev">$0</div><div class="sold-stat-label">Revenue</div></div>
@@ -2498,7 +2510,7 @@ function clearAllData(){
     showPage(_startPage);
   }
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-mobile-v2"];
+  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
