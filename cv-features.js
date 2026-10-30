@@ -234,3 +234,125 @@ async function cvxMatchPhotos(event){
     CVX.matchLog.map(m=>'<div>'+cvxEsc(m.label)+' → '+(m.candidates.length===1?'1 suggested match':m.candidates.length+' candidates (review manually)')+'</div>').join('')+'</div>';
   cvxRenderSaleCandidates();
 }
+
+
+function cvxShowShare(scope,player=''){
+ CVX.shareScope=scope;CVX.sharePlayer=player;
+ if(scope==='selected'&&!CVX.selected.size){toast('Select cards to share','error');return;}
+ openShareModal();
+ cvxRenderShareMenu();
+}
+function cvxRenderShareMenu(){
+ const players=[...new Set(inventory.map(c=>c.player))].sort();
+ const sel=(v,label)=>'<option value="'+cvxEsc(v)+'"'+(CVX.sharePlayer===v?' selected':'')+'>'+cvxEsc(label)+'</option>';
+ se('share-body').innerHTML='<div class="form-group"><label class="form-label">Which cards to share?</label><select id="cvx-share-scope" class="form-select" onchange="CVX.shareScope=this.value;cvxRenderShareMenu()">'+
+ ['all','selected','player'].map(k=>'<option value="'+k+'"'+(CVX.shareScope===k?' selected':'')+'>'+({all:'Entire Inventory',selected:'Selected Cards ('+CVX.selected.size+')',player:'Player Folder'}[k])+'</option>').join('')+'</select></div>'+
+ (CVX.shareScope==='player'?'<div class="form-group"><label class="form-label">Player</label><select id="cvx-share-player" class="form-select" onchange="CVX.sharePlayer=this.value">'+sel('','Choose a player')+players.map(p=>sel(p,p)).join('')+'</select></div>':'')+
+ '<label style="display:flex;gap:9px;align-items:center;margin:10px 0 16px;font-size:13px"><input type="checkbox" id="cvx-share-prices" checked style="accent-color:var(--gold)"> Show individual card values</label>'+
+ '<div class="cvx-mini" style="margin-bottom:10px">Total collection value and purchase costs are never shared. Shared links are snapshots and do not update automatically.</div>'+
+ '<button class="btn btn-primary" onclick="cvxGenerateShare()">🔗 Generate Share Link</button>';
+}
+function cvxShareCards(){
+ if(CVX.shareScope==='selected')return inventory.filter(c=>CVX.selected.has(c.id));
+ if(CVX.shareScope==='player')return inventory.filter(c=>c.player===CVX.sharePlayer);
+ return inventory.slice();
+}
+async function cvxGenerateShare(){
+ const cards=cvxShareCards(),token=getKey('gist');
+ if(!cards.length){toast('No cards in this selection','error');return;}
+ if(!token){toast('Add your GitHub Gist token in Settings first','error');return;}
+ const prices=!!se('cvx-share-prices')?.checked;
+ se('share-body').innerHTML='<div class="market-empty">Preparing '+cards.length+' cards and photos…</div>';
+ try{
+  const snapshot=await Promise.all(cards.map(async c=>{
+   const copy={id:c.id,player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,cardNum:c.cardNum,variation:c.variation,printRun:c.printRun,condition:c.condition,grade:c.grade,certNumber:c.certNumber};
+   if(prices)copy.value=c.value;
+   if(c.photo)copy.photo=await _compressForShare(c.photo,40*1024);
+   return copy;
+  }));
+  const r=await fetch('https://api.github.com/gists',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/vnd.github+json','Authorization':'Bearer '+token},body:JSON.stringify({description:'CardVault shared collection',public:false,files:{'collection.json':{content:JSON.stringify(snapshot)}}})});
+  if(!r.ok)throw new Error('GitHub '+r.status+' '+(await r.text()).slice(0,150));
+  const g=await r.json(),url=location.origin+location.pathname+'?gist='+encodeURIComponent(g.id);
+  se('share-body').innerHTML='<div style="font-size:13px;color:var(--green);margin-bottom:10px">✅ Ready: '+snapshot.length+' cards</div><textarea id="cvx-share-link" class="form-input" rows="3" readonly></textarea><button class="btn btn-primary" onclick="copyText(se(\'cvx-share-link\').value).then(()=>toast(\'Link copied\',\'success\'))">Copy Link</button><button class="btn btn-secondary" onclick="cvxRenderShareMenu()">New Share</button>';
+  se('cvx-share-link').value=url;
+ }catch(e){se('share-body').textContent='Share failed: '+e.message;}
+}
+function cvxRenderSold(){
+ const groups=new Map();
+ soldHistory.forEach((s,i)=>{const k=s.transactionId||'legacy-'+i;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(s);});
+ const count=soldHistory.length;
+ const sum=(field)=>soldHistory.reduce((a,s)=>a+(Number(s[field])||0),0);
+ se('s-count').textContent=count;se('s-rev').textContent=fmt(sum('salePrice'));
+ const profit=sum('pl'),pl=se('s-pl');pl.textContent=fmtPL(profit);pl.style.color=profit>=0?'var(--green)':'var(--red)';
+ se('sold-list').innerHTML=[...groups.values()].map(items=>{
+  const total=k=>items.reduce((a,s)=>a+(Number(s[k])||0),0);
+  const s=items[0],date=cvxEsc(s.dateSold||''),name=items.length===1?cvxEsc(s.player):items.length+'-Card Lot';
+  const rows=items.map(c=>'<div class="detail-row"><div style="flex:1"><b>'+cvxEsc(c.player)+'</b><div class="cvx-mini">'+cvxEsc([c.year,c.set,c.variation,c.grade].filter(Boolean).join(' · '))+'</div></div><div style="text-align:right"><div>'+fmt(c.salePrice)+'</div><div style="color:'+(Number(c.pl)>=0?'var(--green)':'var(--red)')+'">'+fmtPL(c.pl)+'</div></div></div>').join('');
+  return '<details class="cvx-group"><summary><div style="display:inline-flex;justify-content:space-between;width:calc(100% - 20px);gap:8px"><span>'+name+'<div class="cvx-mini">'+cvxEsc(s.platform||'')+' · '+date+'</div></span><span style="text-align:right">'+fmt(total('salePrice'))+'<div style="font-size:12px;color:'+(total('pl')>=0?'var(--green)':'var(--red)')+'">'+fmtPL(total('pl'))+'</div></span></div></summary><div style="padding-top:10px" class="cvx-mini">Gross '+fmt(total('salePrice'))+' · Fees '+fmt(total('fees'))+' · Shipping '+fmt(total('shipping'))+' · Other '+fmt(total('otherExpenses'))+' · Basis '+fmt(total('cost'))+'</div>'+rows+'</details>';
+ }).join('')||'<div class="empty"><div class="empty-title">No Sales Yet</div></div>';
+}
+async function cvxExportBackup(){
+ try{
+  const photos=await dbGetAllPhotos();
+  const data={format:'CardVaultFullBackup',version:1,exportedAt:new Date().toISOString(),inventory:inventory.map(c=>({...c})),soldHistory:soldHistory.map(c=>({...c})),photos};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='cardvault-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);toast('Backup export created','success');
+ }catch(e){toast('Backup export failed: '+e.message,'error');}
+}
+async function cvxImportBackup(e){
+ const f=e.target.files?.[0];e.target.value='';if(!f)return;
+ try{
+  const data=JSON.parse(await f.text());
+  if(data.format!=='CardVaultFullBackup'||!Array.isArray(data.inventory)||!Array.isArray(data.soldHistory)||!data.photos||typeof data.photos!=='object')throw new Error('Not a valid CardVault backup');
+  if(!confirm('Replace your current collection and sold history with this backup? This cannot be undone.'))return;
+  const db=await openPhotoDB();const previousPhotos=await dbGetAllPhotos();
+  const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');store.clear();
+  Object.entries(data.photos).forEach(([id,photo])=>{if(photo)store.put({id:Number(id)||id,data:photo});});
+  await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+  const oldInv=inventory,oldSold=soldHistory; inventory=data.inventory;soldHistory=data.soldHistory;
+  try{save();}catch(err){
+   inventory=oldInv;soldHistory=oldSold;
+   const rollback=db.transaction('photos','readwrite'),obj=rollback.objectStore('photos');obj.clear();Object.entries(previousPhotos).forEach(([id,photo])=>obj.put({id:Number(id)||id,data:photo}));
+   throw err;
+  }
+  location.reload();
+ }catch(err){toast('Restore failed: '+err.message,'error');}
+}
+function cvxClearAllData(){
+ if(!confirm('Delete ALL inventory and sold history?'))return;
+ if(!confirm('This removes local photos and backups too. Continue?'))return;
+ const dbPromise=openPhotoDB();
+ try{
+  inventory=[];soldHistory=[];
+  localStorage.setItem(KEYS.inv,'[]');localStorage.setItem(KEYS.sold,'[]');
+  localStorage.removeItem(KEYS.backup);localStorage.removeItem(KEYS.backupSold);
+  localStorage.removeItem('cv_photos');
+  dbPromise.then(db=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').clear();tx.oncomplete=()=>toast('All data deleted','success');}).catch(err=>toast('Photo cleanup failed: '+err.message,'error'));
+  CVX.selected.clear();renderDash();renderInventory();renderSold();renderPlayers();updateHeader();showPage('dash');
+ }catch(err){toast('Delete failed: '+err.message,'error');}
+}
+function cvxHideUnpriced(){
+ document.querySelectorAll('.card-item[onclick^="openCard("]').forEach(row=>{
+ const m=(row.getAttribute('onclick')||'').match(/openCard\((\d+)\)/);const c=m&&inventory.find(c=>c.id===Number(m[1]));
+ if(c&&(c.needsPricing||!(Number(c.value)>0))){
+  row.querySelectorAll('.price-pl').forEach(el=>{el.textContent='Not priced';el.className='price-pl';});
+ }
+ });
+}
+function cvxWrapApp(){
+ const originalInventory=renderInventory,originalDash=renderDash,originalHeader=updateHeader,originalSold=renderSold,originalShare=openShareModal;
+ renderInventory=function(){originalInventory();cvxHideUnpriced();cvxRenderSelection();};
+ renderDash=function(){originalDash();cvxFixDash();cvxHideUnpriced();};
+ updateHeader=function(){originalHeader();cvxFixHeader();};
+ renderSold=function(){cvxRenderSold();};
+ openShareModal=function(){originalShare();cvxRenderShareMenu();};
+ clearAllData=function(){cvxClearAllData();};
+ const origPlayer=openPlayerFolder;
+ openPlayerFolder=function(name){origPlayer(name);const b=document.createElement('button');b.className='btn-sm gold';b.textContent='🔗 Share Player';b.style.marginBottom='12px';b.onclick=()=>cvxShowShare('player',name);se('player-detail-content').prepend(b);};
+ const origInsight=renderInsights;
+ renderInsights=function(){origInsight(); const ids=['i-gainers','i-losers'];ids.forEach(id=>{const el=se(id);if(!el)return;[...el.querySelectorAll('.card-item')].forEach(row=>{const m=(row.getAttribute('onclick')||'').match(/openCard\((\d+)\)/),c=m&&inventory.find(v=>v.id===Number(m[1]));if(c&&(c.needsPricing||!(Number(c.value)>0)))row.remove();});});};
+}
+cvxWrapApp();
+cvxInit();
+renderDash();renderSold();
