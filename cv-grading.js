@@ -30,7 +30,7 @@ function cvgDate(d){const s=String(d||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(s))retu
 function cvgDay(){const d=new Date();return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
 function cvgCard(id){return inventory.find(c=>Number(c.id)===Number(id));}
 function cvgSold(id){return soldHistory.find(c=>Number(c.cardId)===Number(id));}
-function cvgLabel(card){return card?[card.player,card.year,card.set,card.variation,card.grade].filter(Boolean).join(' · '):'Card #'+id;}
+function cvgLabel(card){return card?[card.player,card.year,card.set,card.variation,card.grade].filter(Boolean).join(' · ') :'Missing card';}
 function cvgCompany(s){return ['PSA','BGS','SGC','CGC','Other'].includes(s)?s:'Other';}
 function cvgBusy(id,except){
  return CVG.items.some(x=>x.id!==except&&!['returned','cancelled'].includes(x.status)&&x.cards.some(c=>Number(c.cardId)===Number(id)));
