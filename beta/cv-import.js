@@ -54,6 +54,8 @@ function cvimpPrep(table,filename){
  CVImport={rows,filename,accepted:[],warnings};cvimpRender();
 }
 function cvimpRender(){
+ // A review modal must never open without a successfully parsed file.
+ if(!CVImport.rows.length||!CVImport.filename)return;
  const box=se('cv-import-body');if(!box)return;const rows=CVImport.rows;
  box.innerHTML='<div style="font-size:12px;color:var(--text2);margin-bottom:12px">'+cvxEsc(CVImport.filename)+' · '+rows.length+' valid rows. Potential duplicates are unchecked by default.</div>'+
  (CVImport.warnings.length?'<details style="margin-bottom:12px;color:var(--gold)"><summary>'+CVImport.warnings.length+' warnings or skipped rows</summary><div style="white-space:pre-wrap;font-size:11px">'+cvxEsc(CVImport.warnings.slice(0,100).join('\n'))+'</div></details>':'')+
@@ -72,6 +74,7 @@ function cvimpConfirm(){
 }
 async function cvimpFile(event){
  const file=event.target.files?.[0];event.target.value='';if(!file)return;
+ CVImport={rows:[],filename:'',accepted:[],warnings:[]};
  try{
   if(file.size>12*1024*1024)throw Error('Maximum file size is 12 MB.');
   const ext=file.name.split('.').pop().toLowerCase();let table;
@@ -89,6 +92,7 @@ async function cvimpFile(event){
  }catch(e){toast('Import failed: '+e.message,'error');}
 }
 function cvimpInit(){
+ const existing=se('cv-import-modal');if(existing)existing.remove();
  const modal=document.createElement('div');modal.className='overlay';modal.id='cv-import-modal';modal.style.zIndex='530';
  modal.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title">Review Spreadsheet Import</div><button class="sheet-close" onclick="closeModal(\'cv-import-modal\')">✕</button></div><div class="sheet-body" id="cv-import-body"></div></div>';document.body.append(modal);
 }
