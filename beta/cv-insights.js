@@ -65,7 +65,9 @@ function cviCash(n){return fmt(cviRound(n));}
 function cviPL(n){return fmtPL(cviRound(n));}
 function cviPct(n,d){return d>0?(n/d*100).toFixed(1)+'%':'N/A';}
 function cviMetric(label,value,detail,signal=0){
- return '<div class="cvi-metric"><div class="cvi-caption">'+label+'</div><div class="cvi-number" style="'+(signal?'color:'+(signal>0?'var(--green)':'var(--red)'):'')+'">'+value+'</div><div class="cvi-caption">'+detail+'</div></div>';
+ const keys={'Verified Net Profit':'profit','Realized ROI':'roi','Win Rate':'wins','Net Sale Proceeds':'proceeds','Unrealized P&L':'unreal','Unrealized ROI':'unrealroi','Priced Card Value':'value','Need Review':'review'};
+ const key=keys[label]||'proceeds';
+ return '<button type="button" class="cvi-metric cvi-tile" onclick="cviDrill(\''+key+'\')" aria-label="View '+label+' details"><span class="cvi-caption">'+label+'</span><span class="cvi-number" style="'+(signal?'color:'+(signal>0?'var(--green)':'var(--red)'):'')+'">'+value+'</span><span class="cvi-caption">'+detail+' <b style="color:var(--gold)">›</b></span></button>';
 }
 function cviBreakdown(label,items){
  return '<details class="cvi-section"><summary>'+label+'</summary>'+ (items.length?items.slice(0,12).map(v=>'<div class="cvi-line"><span>'+cvxEsc(v.name)+' <small>('+v.count+')</small></span><b style="color:'+(v.profit>=0?'var(--green)':'var(--red)')+'">'+cviPL(v.profit)+'</b></div>').join(''):'<p class="cvi-caption">No recorded sales match this selection.</p>')+'</details>';
@@ -131,39 +133,112 @@ function cviRender(){
 function cviReviewSale(id){
  const s=soldHistory.find(r=>Number(r.id)===Number(id));if(!s)return;
  CVI.reviewId=id;
- const overlay=se('cvi-edit-overlay');if(!overlay)return;
  const body=se('cvi-review-body');if(!body)return;
  se('cvi-review-title').textContent='Review Cost Basis';
- body.innerHTML='<div style="font-weight:700;margin:0 0 8px">'+cvxEsc(s.player)+'</div><div class="cvi-caption">Sale proceeds: '+cviCash(cviSale(s).net)+'</div>'+
- '<div class="form-group"><label class="form-label">Acquisition Cost ($)</label><input id="cvi-review-cost" class="form-input" inputmode="decimal" type="number" min="0" step=".01" value="'+cviNum(s.cost)+'"></div>'+
+ const r=cviSale(s);
+ body.innerHTML='<div style="font-weight:700;margin:0 0 8px">'+cvxEsc(s.player)+'</div>'+
+ '<div class="cvi-caption">Recorded gross '+cviCash(r.gross)+' · Net proceeds '+cviCash(r.net)+' · Cost used '+cviCash(r.cost)+'</div>'+
+ '<div class="form-group"><label class="form-label">Recorded Card Cost ($)</label><input id="cvi-review-cost" class="form-input" inputmode="decimal" type="number" min="0" step=".01" value="'+cviNum(s.cost)+'"></div>'+
  '<div class="form-group"><label class="form-label">Cost Basis Status</label><select id="cvi-review-status" class="form-select">'+
  [['known','Known purchase cost'],['free','Truly free ($0)'],['estimated','Estimated purchase cost'],['unknown','Unknown purchase cost']].map(([v,n])=>'<option value="'+v+'"'+(v===cviCostStatus(s)?' selected':'')+'>'+n+'</option>').join('')+
- '</select></div><p class="cvi-caption">Free means you received the card for no acquisition cost. Cards included in a purchased lot should normally receive an allocated share of the lot cost.</p>'+
+ '</select></div>'+
+ '<div class="form-group"><label class="form-label">Correction Note (optional)</label><textarea id="cvi-review-note" class="form-textarea" rows="2" placeholder="e.g. Corrected allocation from purchased lot"></textarea></div>'+
+ '<p class="cvi-caption">A free card must have a $0 acquisition cost. Cards included in a purchased lot should generally receive part of that lot’s cost. Saving a correction changes only this sold-card record, not the original sale price, fees or other cards.</p>'+
  '<div class="cvi-warning" id="cvi-review-error" style="display:none"></div><button class="btn btn-primary" onclick="cviSaveReview()">Save Reviewed Cost Basis</button>';
  openModal('cvi-edit-overlay');
 }
 function cviSaveReview(){
  const s=soldHistory.find(r=>Number(r.id)===Number(CVI.reviewId));if(!s)return;
- const status=se('cvi-review-status').value,raw=se('cvi-review-cost').value.trim(),number=Number(raw);
- const error=se('cvi-review-error');error.style.display='none';
- if(!Number.isFinite(number)||number<0||number>100000000||(status==='free'&&number!==0)||(status==='known'&&!raw)){
-  error.textContent='Enter a valid cost. Truly free cards must have a $0 purchase cost.';error.style.display='block';return;
+ const status=se('cvi-review-status').value,raw=se('cvi-review-cost').value.trim(),number=Number(raw),error=se('cvi-review-error');
+ error.style.display='none';
+ if(!['known','free','estimated','unknown'].includes(status)||!Number.isFinite(number)||number<0||number>100000000||
+ (status==='free'&&number!==0)||(status==='known'&&number<=0)||(status==='estimated'&&!raw)){
+  error.textContent='Enter a valid basis. Known purchases require a positive cost; truly free cards must have $0 cost.';error.style.display='block';return;
  }
- const before={...s};s.basisStatus=status;s.cost=cviRound(number);
- const entry=cviSale(s);s.pl=entry.profit;
- try{save();closeModal('cvi-edit-overlay');cviRender();renderSold();toast('Cost basis reviewed','success');}
- catch(e){Object.assign(s,before);error.textContent='Unable to save: '+e.message;error.style.display='block';}
+ const original=JSON.parse(JSON.stringify(s));
+ const beforeCost=cviNum(s.cost),beforeStatus=cviCostStatus(s),afterCost=cviRound(number);
+ if(beforeCost===afterCost&&beforeStatus===status){closeModal('cvi-edit-overlay');return;}
+ s.basisStatus=status;s.cost=afterCost;s.pl=cviSale(s).profit;
+ s.basisCorrections=[...(Array.isArray(s.basisCorrections)?s.basisCorrections:[]),{
+  at:new Date().toISOString(),oldCost:beforeCost,newCost:afterCost,oldStatus:beforeStatus,newStatus:status,note:se('cvi-review-note')?.value.trim()||''
+ }];
+ try{save();closeModal('cvi-edit-overlay');cviRender();renderSold();toast('Sale cost basis corrected','success');}
+ catch(e){Object.keys(s).forEach(k=>delete s[k]);Object.assign(s,original);error.textContent='Save failed: '+e.message;error.style.display='block';}
 }
 function cviInit(){
  const page=se('page-insights');if(!page)return;
  const css=document.createElement('style');
  css.textContent='.cvi-section{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin:12px 0}.cvi-section summary{font-weight:700;font-size:13px;cursor:pointer}.cvi-title{margin:18px 0 10px;color:var(--gold);font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}.cvi-title small{color:var(--text2);text-transform:none;font-weight:400}.cvi-filters,.cvi-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.cvi-filters .form-select{font-size:12px;min-width:0;padding:9px 5px;width:100%}.cvi-filters>div{min-width:0}.cvi-metric{padding:12px;border-radius:10px;background:var(--bg2);border:1px solid var(--border2);min-width:0}.cvi-number{font-family:"DM Mono",monospace;font-weight:700;font-size:18px;margin:5px 0;overflow-wrap:anywhere}.cvi-caption{color:var(--text2);font-size:11px;line-height:1.5}.cvi-warning{font-size:11px;line-height:1.5;color:var(--text);background:var(--gold-dim);padding:10px;border:1px solid var(--gold);border-radius:8px;margin:12px 0}.cvi-line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border2);gap:8px;font-size:12px}.cvi-line small{color:var(--muted)}.cvi-review{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;background:transparent;color:var(--text);border:0;border-top:1px solid var(--border2);padding:12px 0;text-align:left;font-family:inherit;font-size:12px}';
+ css.textContent+='.cvi-tile{display:block;width:100%;text-align:left;color:var(--text);font-family:inherit;cursor:pointer}.cvi-tile:active{border-color:var(--gold)}.cvi-drill-row{display:flex;width:100%;align-items:center;text-align:left;justify-content:space-between;gap:10px;border:none;border-bottom:1px solid var(--border2);padding:13px 0;background:transparent;font-family:inherit;color:var(--text);font-size:12px;cursor:pointer}.cvi-drill-row small{display:block;color:var(--text2);font-size:11px;line-height:1.6}.cvi-drill-row>b{white-space:nowrap;color:var(--gold)}.cvi-detail-line{display:flex;justify-content:space-between;gap:10px;padding:10px 0;font-size:12px;border-bottom:1px solid var(--border2)}.cvi-detail-line>span{color:var(--text2)}.cvi-detail-rule{border-top:2px solid var(--border2);margin:13px 0}';
  document.head.appendChild(css);
  const root=document.createElement('div');root.id='cvi-root';page.querySelector('.sec-header').after(root);
  const overlay=document.createElement('div');overlay.className='overlay';overlay.id='cvi-edit-overlay';overlay.style.zIndex='450';
  overlay.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title" id="cvi-review-title">Review Cost Basis</div><button class="sheet-close" onclick="closeModal(\'cvi-edit-overlay\')">✕</button></div><div class="sheet-body" id="cvi-review-body"></div></div>';
  document.body.append(overlay);
+ const details=document.createElement('div');details.className='overlay';details.id='cvi-details-overlay';details.style.zIndex='440';
+ details.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title" id="cvi-detail-title">Insight Details</div><button class="sheet-close" onclick="closeModal(\'cvi-details-overlay\')">✕</button></div><div class="sheet-body" id="cvi-detail-body"></div></div>';
+ document.body.append(details);
  const prior=renderInsights;renderInsights=function(){prior();cviRender();};
  cviRender();
 }
+
+function cviDrill(metric){
+ const names={
+ profit:['Verified Net Profit','Verified sales with known or explicitly free cost basis.'],
+ roi:['Realized ROI','Verified sales with positive card cost. Free cards are excluded from percentage ROI.'],
+ wins:['Win Rate','All sales with verified card cost, including free cards.'],
+ proceeds:['Net Sale Proceeds','All completed sales after fees and shipping, including uncertain cost records.'],
+ unreal:['Unrealized P&L','Current priced holdings with verified cost basis.'],
+ unrealroi:['Unrealized ROI','Current value versus basis of qualifying inventory, not a historical return.'],
+ value:['Priced Card Value','Current value for holdings with verified cost and market values.'],
+ review:['Holdings Needing Review','Cards with missing market values or uncertain cost basis.']
+ };
+ const info=names[metric];if(!info)return;
+ CVI.lastMetric=metric;
+ const d=cviData(),saleMetric=['profit','roi','wins','proceeds'].includes(metric);
+ const records=(saleMetric?(metric==='profit'?d.verified:metric==='roi'?d.investment:metric==='wins'?d.verified:d.sales):
+ metric==='review'?d.inventorySet.filter(c=>!d.priced.includes(c)):d.priced).slice();
+ if(saleMetric)records.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ else records.sort((a,b)=>cviNum(b.value)-cviNum(a.value));
+ se('cvi-detail-title').textContent=info[0];
+ const lines=records.map(x=>{
+  if(saleMetric){
+   const val=metric==='proceeds'?cviCash(x.net):metric==='wins'?(x.profit>0?'Win':x.profit<0?'Loss':'Even'):metric==='roi'?cviPct(x.profit,x.cost):cviPL(x.profit);
+   return '<button type="button" class="cvi-drill-row" onclick="cviSaleDetails('+Number(x.id)+')"><span style="min-width:0;flex:1"><b>'+cvxEsc(x.player)+'</b><small>'+cvxEsc(x.date||'Undated')+' · '+cvxEsc(x.platform)+' · '+cvxEsc(x.status)+'</small><small>Basis '+cviCash(x.cost)+' · Gross '+cviCash(x.gross)+' · Net '+cviCash(x.net)+'</small></span><b>'+val+' ›</b></button>';
+  }
+  const priced=!x.needsPricing&&Number(x.value)>0;
+  const reason=!priced?'Needs pricing':'Cost: '+cviCostStatus(x);
+  const gain=cviRound(cviNum(x.value)-cviNum(x.cost));
+  const val=metric==='review'?'Review':metric==='value'?cviCash(x.value):metric==='unrealroi'?cviPct(gain,cviNum(x.cost)):cviPL(gain);
+  return '<button type="button" class="cvi-drill-row" onclick="cviViewHolding('+Number(x.id)+')"><span style="min-width:0;flex:1"><b>'+cvxEsc(x.player)+'</b><small>'+cvxEsc([x.year,x.set,x.variation,x.grade].filter(Boolean).join(' · '))+'</small><small>Basis '+cviCash(x.cost)+' · '+(metric==='review'?reason:'Value '+cviCash(x.value))+'</small></span><b>'+val+' ›</b></button>';
+ }).join('');
+ se('cvi-detail-body').innerHTML='<p class="cvi-caption">'+cvxEsc(info[1])+' '+records.length+' record'+(records.length===1?'':'s')+' match your current filters.</p>'+
+ (lines||'<p class="cvi-caption" style="padding:12px">No matching records.</p>');
+ openModal('cvi-details-overlay');
+}
+function cviViewHolding(id){closeModal('cvi-details-overlay');openCard(id);}
+function cviSaleDetails(id){
+ const raw=soldHistory.find(s=>Number(s.id)===Number(id));if(!raw)return;
+ const x=cviSale(raw),verified=['known','free'].includes(x.status);
+ const item=(label,val,important)=>'<div class="cvi-detail-line"><span>'+label+'</span><b'+(important?' style="color:'+(x.profit>=0?'var(--green)':'var(--red)')+'"':'')+'>'+val+'</b></div>';
+ const hist=Array.isArray(raw.basisCorrections)?raw.basisCorrections:[];
+ se('cvi-detail-title').textContent='Sale Details';
+ se('cvi-detail-body').innerHTML='<div style="font-weight:700;font-size:16px">'+cvxEsc(raw.player)+'</div>'+
+ '<div class="cvi-caption">'+cvxEsc([raw.year,raw.set,raw.variation,raw.grade].filter(Boolean).join(' · '))+'</div>'+
+ '<div class="cvi-caption" style="margin:8px 0 12px">'+cvxEsc(x.date||'Date not recorded')+' · '+cvxEsc(x.platform)+(Number(raw.transactionSize)>1?' · '+Number(raw.transactionSize)+'-card lot':'')+'</div>'+
+ item('Gross sale',cviCash(x.gross))+item('Platform fees','−'+cviCash(raw.fees))+
+ item('Shipping expense','−'+cviCash(raw.shipping))+item('Other sale expenses','−'+cviCash(raw.otherExpenses))+
+ item('Net proceeds',cviCash(x.net))+'<div class="cvi-detail-rule"></div>'+
+ item('Cost CardVault Used',cviCash(x.cost))+item('Basis Status',cvxEsc(x.status))+
+ item((verified?'Verified':x.status==='estimated'?'Estimated':'Unverified')+' profit',cviPL(x.profit),true)+
+ (x.discrepancy?'<div class="cvi-warning">Stored sale profit differs from these itemized amounts. Please review the sale carefully.</div>':'')+
+ (raw.notes?'<p class="cvi-caption">Sale notes: '+cvxEsc(raw.notes)+'</p>':'')+
+ '<p class="cvi-caption" style="margin:12px 0">CardVault copied this cost from the inventory record when the sale was saved. It may include grading costs or allocated purchase costs; the app cannot independently verify your original entry.</p>'+
+ '<button class="btn btn-primary" onclick="closeModal(\'cvi-details-overlay\');cviReviewSale('+Number(x.id)+')">Review / Correct Cost Basis</button>'+
+ (hist.length?'<details class="cvi-section"><summary>Correction History ('+hist.length+')</summary>'+
+ hist.map(h=>'<div class="cvi-caption" style="padding:8px 0;border-bottom:1px solid var(--border)">'+cvxEsc(String(h.at||'').slice(0,16).replace('T',' '))+' · '+cviCash(h.oldCost)+' ('+cvxEsc(h.oldStatus)+') → '+cviCash(h.newCost)+' ('+cvxEsc(h.newStatus)+')'+(h.note?'<div>'+cvxEsc(h.note)+'</div>':'')+'</div>').join('')+'</details>':'')+
+ '<button class="btn btn-secondary" style="margin-top:10px" onclick="cviDrill(CVI.lastMetric||\'proceeds\')">← Back to Tile Details</button>';
+ openModal('cvi-details-overlay');
+}
+
 if(!new URLSearchParams(location.search).has('gist'))cviInit();
