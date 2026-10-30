@@ -358,7 +358,7 @@ async function cvxExportBackup(){
   const photos=await dbGetAllPhotos();
   inventory.forEach(c=>{if(c.photo&&!photos[c.id])photos[c.id]=c.photo;});
   const receiptData=typeof cvrExport==='function'?await cvrExport():{receipts:[],receiptPhotos:{}};
-  const data={format:'CardVaultFullBackup',version:1,exportedAt:new Date().toISOString(),inventory:inventory.map(c=>({...c})),soldHistory:soldHistory.map(c=>({...c})),photos,...receiptData,grading:typeof cvgExport==="function"?cvgExport():[],chaseList:typeof chaseItems!=='undefined'?chaseItems.map(x=>({...x})):[]};
+  const data={format:'CardVaultFullBackup',version:1,exportedAt:new Date().toISOString(),inventory:inventory.map(c=>({...c})),soldHistory:soldHistory.map(c=>({...c})),photos,...receiptData,grading:typeof cvgExport==="function"?cvgExport():[],chaseList:typeof chaseItems!=='undefined'?chaseItems.map(x=>({...x})):[],pulseCustom:typeof pulseRead==='function'?pulseRead('cv_beta_pulse_custom_v1'):[],pulseWatch:typeof pulseRead==='function'?pulseRead('cv_beta_pulse_watch_v1'):[]};
   const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
   const a=document.createElement('a');a.href=url;a.download='cardvault-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000);toast('Backup export created','success');
@@ -374,6 +374,8 @@ async function cvxImportBackup(e){
   if(typeof cvrCheckBackup==='function')cvrCheckBackup(data);
   if(typeof cvgValidateBackup==='function')cvgValidateBackup(data);
   if(data.chaseList!==undefined&&(!Array.isArray(data.chaseList)||data.chaseList.some(x=>!x||typeof x.name!=='string'||typeof x.id!=='string')))throw Error('Invalid chase list in backup');
+   if(data.pulseCustom!==undefined&&(!Array.isArray(data.pulseCustom)||data.pulseCustom.some(x=>!x||typeof x.id!=='string'||typeof x.title!=='string')))throw Error('Invalid custom release calendar in backup');
+   if(data.pulseWatch!==undefined&&(!Array.isArray(data.pulseWatch)||data.pulseWatch.some(x=>typeof x!=='string')))throw Error('Invalid release watchlist in backup');
   CVX.pendingBackup=data;
   panel.style.display='block';panel.innerHTML="<div style=\"font-weight:700;color:var(--gold);margin-bottom:8px\">Review Backup Before Restoring</div><div class=\"cvx-mini\" id=\"cvx-restore-summary\" style=\"margin-bottom:12px\"></div><div class=\"cvx-mini\">Type RESTORE to confirm replacing this beta inventory and sold history:</div><input class=\"form-input\" id=\"cvx-restore-phrase\" placeholder=\"RESTORE\" autocomplete=\"off\"><div style=\"display:flex;gap:8px;margin-top:10px\"><button class=\"btn btn-danger\" onclick=\"cvxPerformRestore()\">Replace Beta Data</button><button class=\"btn btn-secondary\" onclick=\"cvxCancelRestore()\">Cancel</button></div>";
   se('cvx-restore-summary').textContent='Backup: '+data.inventory.length+' inventory cards, '+data.soldHistory.length+' sales, '+Object.keys(data.photos).length+' card photos, '+(data.receipts?.length||0)+' receipts, '+(data.grading?.length||0)+' grading submissions. Current: '+inventory.length+' inventory cards, '+soldHistory.length+' sales. This replaces the CURRENT TEST VAULT only.';
@@ -389,7 +391,7 @@ async function cvxPerformRestore(){
  const button=se('cvx-restore-confirm')?.querySelector('.btn-danger');if(button){button.disabled=true;button.textContent='Restoring and validating…';}
  let previous=null;
  const copyStorage=()=>{
-  const keys=[KEYS.inv,KEYS.sold,KEYS.backup,KEYS.backupSold,CVR.storeKey,CVG.key,'cv_beta_chase_v1'];
+  const keys=[KEYS.inv,KEYS.sold,KEYS.backup,KEYS.backupSold,CVR.storeKey,CVG.key,'cv_beta_chase_v1','cv_beta_pulse_custom_v1','cv_beta_pulse_watch_v1'];
   return Object.fromEntries(keys.map(k=>[k,localStorage.getItem(k)]));
  };
  const restoreStorage=values=>{
@@ -416,6 +418,8 @@ async function cvxPerformRestore(){
   cvgRestore(data);
   // Older backup files predate the chase feature; preserve current chase list for those.
   if(Array.isArray(data.chaseList)){localStorage.setItem('cv_beta_chase_v1',JSON.stringify(data.chaseList));if(typeof chaseItems!=='undefined')chaseItems=data.chaseList.map(x=>({...x}));}
+   if(Array.isArray(data.pulseCustom))localStorage.setItem('cv_beta_pulse_custom_v1',JSON.stringify(data.pulseCustom));
+   if(Array.isArray(data.pulseWatch))localStorage.setItem('cv_beta_pulse_watch_v1',JSON.stringify(data.pulseWatch));
   inventory=data.inventory.map(x=>({...x}));
   soldHistory=data.soldHistory.map(x=>({...x}));
   save();
@@ -460,6 +464,8 @@ function cvxClearAllData(){
   localStorage.removeItem(KEYS.backup);localStorage.removeItem(KEYS.backupSold);
   localStorage.removeItem('cv_beta_photos');
   localStorage.removeItem('cv_beta_chase_v1');if(typeof chaseItems!=='undefined')chaseItems=[];
+   localStorage.removeItem('cv_beta_pulse_custom_v1');localStorage.removeItem('cv_beta_pulse_watch_v1');
+   if(typeof PULSE!=='undefined'){PULSE.custom=[];PULSE.watch=[];}
   dbPromise.then(db=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').clear();tx.oncomplete=()=>toast('All data deleted','success');}).catch(err=>toast('Photo cleanup failed: '+err.message,'error'));
   CVX.selected.clear();renderDash();renderInventory();renderSold();renderPlayers();updateHeader();showPage('dash');
  }catch(err){toast('Delete failed: '+err.message,'error');}
