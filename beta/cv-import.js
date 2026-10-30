@@ -37,11 +37,16 @@ function cvimpPrep(table,filename){
    const recorded=cvimpNumber(get('cost')),grading=cvimpNumber(get('gradingCosts'))||0,value=cvimpNumber(get('value'));
    const costColumn=map.cost===undefined?'':cvimpNorm(table[0][map.cost]);
    const purchaseOnly=['purchasecost','whatipaid','paid','pricepaid','acquisitioncost'].includes(costColumn);
-   const cost=purchaseOnly?(recorded===null?null:Math.round((recorded+grading)*100)/100):recorded;
+   // Do not discard known grading expense when acquisition cost was left blank.
+   // A card with $20 in grading and an unknown purchase price is NOT a known $20 investment.
+   const cost=purchaseOnly
+     ? Math.round(((recorded??0)+grading)*100)/100
+     : recorded===null ? grading : recorded;
    const basisRaw=get('basisStatus').toLowerCase();
    if(basisRaw&&!['known','free','estimated','unknown'].includes(basisRaw))throw Error('Unsupported basis status');
-   if(cost!==null&&grading>cost)throw Error('Grading costs exceed total recorded cost');
-   let status=basisRaw||(cost!==null&&cost>0?'known':'unknown');
+   if(grading>cost+0.001)throw Error('Grading costs exceed total recorded cost');
+   const acquisitionKnown=recorded!==null&&(purchaseOnly?recorded>0:recorded>grading+0.001);
+   let status=basisRaw||(acquisitionKnown?'known':'unknown');
    if(status==='free'&&cost!==null&&cost!==grading)throw Error('Free acquisition conflicts with the recorded card cost');
    if(status==='known'&&!(cost>0))throw Error('Known basis needs a positive cost');
    const card={player,sport:get('sport')||'Other',year:get('year'),team:get('team'),set:get('set'),cardNum:get('cardNum'),variation:get('variation'),printRun:get('printRun'),condition:get('condition')||(get('grade')?'Graded':'Raw'),grade:get('grade'),certNumber:get('certNumber'),cost:cost||0,gradingCosts:grading,value:value||0,needsPricing:!(value>0),basisStatus:status,purchaseDate:get('purchaseDate'),notes:get('notes'),photo:null};
