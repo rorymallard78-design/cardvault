@@ -864,7 +864,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
-<script src="cv-recovery.js?v=chase-recovery-v2"></script>
+<script src="cv-recovery.js?v=pulse-recovery-v3"></script>
 <script>
 // ===== DATA =====
 const KEYS = { inv:'cv_beta_inventory', sold:'cv_beta_sold', ai:'cv_beta_apikey', ebay:'cv_beta_ebaykey', psa:'cv_beta_psakey', share:'cv_beta_sharekey', gist:'cv_beta_gisttoken', backup:'cv_beta_backup', backupSold:'cv_beta_backup_sold' };
@@ -2577,7 +2577,7 @@ function clearAllData(){
   if(window.ResizeObserver&&cvNav)new ResizeObserver(syncFabPosition).observe(cvNav);
   window.addEventListener('resize',syncFabPosition);
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=chase-backup-v4","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-v2","cv-pulse.js?v=release-radar-v1"];
+  const modules=["cv-features.js?v=pulse-backup-v5","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-v2","cv-pulse.js?v=release-radar-v1"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
