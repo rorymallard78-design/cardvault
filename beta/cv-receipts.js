@@ -171,7 +171,7 @@ function cvrSell(){
  const r=CVR.items.find(x=>x.id===CVR.activeId);if(!r||r.status!=="pending"||r.kind!=="sell")return;
  closeModal("modal-receipts");cvxOpenSale([]);CVR.saleReceipt=r.id;
  se("cvx-gross").value=r.amount||"";se("cvx-platform").value="Card Show";
- se("cvx-sale-date").value=new Date(r.at).toLocaleDateString("en-CA");
+ const saleDate=new Date(r.at);se("cvx-sale-date").value=[saleDate.getFullYear(),String(saleDate.getMonth()+1).padStart(2,"0"),String(saleDate.getDate()).padStart(2,"0")].join("-");
  se("cvx-sale-notes").value=r.notes;cvxSalePreview();
 }
 
