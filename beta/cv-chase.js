@@ -12,10 +12,10 @@ function chaseDisplay(){
  const priority={High:0,Medium:1,Low:2};
  shown.sort((a,b)=>(priority[a.priority]??1)-(priority[b.priority]??1)||(b.updatedAt||'').localeCompare(a.updatedAt||''));
  document.getElementById('chase-count').textContent=chaseItems.length+' chase card'+(chaseItems.length===1?'':'s');
- root.innerHTML=shown.length?shown.map(x=>'<div class="chase-card"><div class="chase-top"><b>'+chaseEsc(x.name)+'</b><span class="chase-priority">'+chaseEsc(x.priority)+'</span></div><div class="chase-meta">'+chaseEsc(x.category)+' · '+chaseEsc(x.details||'Details not specified')+'</div>'+(x.target!==null?'<div class="chase-target">Target: $'+Number(x.target).toFixed(2)+'</div>':'')+(x.notes?'<p class="chase-notes">'+chaseEsc(x.notes)+'</p>':'')+(x.url?'<a class="chase-link" target="_blank" rel="noopener noreferrer" href="'+chaseEsc(x.url)+'">Reference link ↗</a>':'')+'<div class="chase-actions"><button class="btn-sm" onclick="chaseEdit('+JSON.stringify(x.id)+')">Edit</button><button class="btn-sm" onclick="chaseDelete('+JSON.stringify(x.id)+')">Remove</button></div></div>').join(''):'<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">No Chase Cards</div><div class="empty-sub">Save cards you want to hunt, including non-sports.</div></div>';
+ root.innerHTML=shown.length?shown.map(x=>'<div class="chase-card"><div class="chase-top"><b>'+chaseEsc(x.name)+'</b><span class="chase-priority">'+chaseEsc(x.priority)+'</span></div><div class="chase-meta">'+chaseEsc(x.category)+' · '+chaseEsc(x.details||'Details not specified')+'</div>'+(x.target!==null?'<div class="chase-target">Target: $'+Number(x.target).toFixed(2)+'</div>':'')+(x.notes?'<p class="chase-notes">'+chaseEsc(x.notes)+'</p>':'')+(x.url?'<a class="chase-link" target="_blank" rel="noopener noreferrer" href="'+chaseEsc(x.url)+'">Reference link ↗</a>':'')+'<div class="chase-actions"><button class="btn-sm" type="button" data-chase-action="edit" data-chase-id="'+chaseEsc(x.id)+'">Edit</button><button class="btn-sm" type="button" data-chase-action="remove" data-chase-id="'+chaseEsc(x.id)+'">Remove</button></div></div>').join(''):'<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">No Chase Cards</div><div class="empty-sub">Save cards you want to hunt, including non-sports.</div></div>';
 }
 function chaseEdit(id){
- const x=chaseItems.find(v=>v.id===id)||{id:'',name:'',category:'Sports',details:'',priority:'Medium',target:null,notes:'',url:''};
+ const x=chaseItems.find(v=>v.id===id)||{id:'',name:'',category:'',details:'',priority:'Medium',target:null,notes:'',url:''};
  document.getElementById('chase-id').value=x.id;
  for(const field of ['name','category','details','priority','notes','url'])document.getElementById('chase-'+field).value=x[field]||'';
  document.getElementById('chase-target').value=x.target??'';
@@ -24,12 +24,14 @@ function chaseEdit(id){
 function chaseCommit(){
  try{
  const name=document.getElementById('chase-name').value.trim(),target=chaseMoney(document.getElementById('chase-target').value);
+ const category=document.getElementById('chase-category').value;
+ if(!category){toast('Select a sport or Non-Sports category','error');return;}
  if(!name){toast('Enter a card or character name','error');return}
  const url=document.getElementById('chase-url').value.trim();
  if(url&&!/^https?:\/\//i.test(url))throw Error('Reference link must start with https://');
  const id=document.getElementById('chase-id').value||'chase-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
  const old=chaseItems.find(x=>x.id===id);
- const item={id,name,category:document.getElementById('chase-category').value,details:document.getElementById('chase-details').value.trim(),priority:document.getElementById('chase-priority').value,target,notes:document.getElementById('chase-notes').value.trim(),url,createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+ const item={id,name,category,details:document.getElementById('chase-details').value.trim(),priority:document.getElementById('chase-priority').value,target,notes:document.getElementById('chase-notes').value.trim(),url,createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
  const previous=chaseItems;chaseItems=old?chaseItems.map(x=>x.id===id?item:x):[item,...chaseItems];
  try{chaseSave()}catch(e){chaseItems=previous;throw e}
  closeModal('chase-editor');chaseDisplay();toast('Chase card saved','success');
@@ -50,7 +52,15 @@ function chaseExport(){
 function chaseInitialize(){
  chaseItems=chaseRead();
  const sheet=document.createElement('div');sheet.id='chase-editor';sheet.className='overlay';
- sheet.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title">Chase Card</div><button class="sheet-close" onclick="closeModal(\'chase-editor\')">✕</button></div><div class="sheet-body"><input type="hidden" id="chase-id"><div class="form-group"><label class="form-label">Card / Player / Character *</label><input class="form-input" id="chase-name" placeholder="e.g., 1980 Bird / Magic RC"></div><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="chase-category"><option>Sports</option><option>Non-Sports</option></select></div><div class="form-group"><label class="form-label">Set / Year / Grade / Parallel</label><input class="form-input" id="chase-details" placeholder="Anything you know about the card"></div><div class="form-group"><label class="form-label">Priority</label><select class="form-input" id="chase-priority"><option>High</option><option selected>Medium</option><option>Low</option></select></div><div class="form-group"><label class="form-label">Target Buy Price ($, optional)</label><input class="form-input" type="number" step=".01" min="0" id="chase-target"></div><div class="form-group"><label class="form-label">Reference Link (optional)</label><input class="form-input" type="url" id="chase-url" placeholder="https://..."></div><div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" rows="3" id="chase-notes" placeholder="Why it interests you, max price, what to watch for..."></textarea></div><button class="btn btn-primary" onclick="chaseCommit()">Save Chase Card</button></div></div>';
+ sheet.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title">Chase Card</div><button class="sheet-close" onclick="closeModal(\'chase-editor\')">✕</button></div><div class="sheet-body"><input type="hidden" id="chase-id"><div class="form-group"><label class="form-label">Card / Player / Character *</label><input class="form-input" id="chase-name" placeholder="e.g., 1980 Bird / Magic RC"></div><div class="form-group"><label class="form-label">Category</label><select class="form-input" id="chase-category"><option value="">Select category...</option><option>Baseball</option><option>Basketball</option><option>Football</option><option>Hockey</option><option>Soccer</option><option>Other</option><option>Non-Sports</option><option value="Sports">Sports (older unsorted entry)</option></select></div><div class="form-group"><label class="form-label">Set / Year / Grade / Parallel</label><input class="form-input" id="chase-details" placeholder="Anything you know about the card"></div><div class="form-group"><label class="form-label">Priority</label><select class="form-input" id="chase-priority"><option>High</option><option selected>Medium</option><option>Low</option></select></div><div class="form-group"><label class="form-label">Target Buy Price ($, optional)</label><input class="form-input" type="number" step=".01" min="0" id="chase-target"></div><div class="form-group"><label class="form-label">Reference Link (optional)</label><input class="form-input" type="url" id="chase-url" placeholder="https://..."></div><div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" rows="3" id="chase-notes" placeholder="Why it interests you, max price, what to watch for..."></textarea></div><button class="btn btn-primary" onclick="chaseCommit()">Save Chase Card</button></div></div>';
  document.body.append(sheet);
+ const list=document.getElementById('chase-list');
+ if(list)list.addEventListener('click',function(event){
+  const button=event.target.closest('button[data-chase-action]');
+  if(!button||!list.contains(button))return;
+  event.preventDefault();
+  if(button.dataset.chaseAction==='edit')chaseEdit(button.dataset.chaseId);
+  if(button.dataset.chaseAction==='remove')chaseDelete(button.dataset.chaseId);
+ });
 }
 chaseInitialize();
