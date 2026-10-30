@@ -257,11 +257,11 @@ function cvrCosts(total,inputs){
  let remain=Math.round(total*100),blanks=0;
  const values=inputs.map(v=>{
   if(v==null||v===""){blanks++;return null;}
-  const n=Math.round(Number(v)*100);
-  if(!Number.isFinite(n)||n<0)throw Error("Invalid cost allocation");
+  const amount=Number(v),n=Math.round(amount*100);
+  if(!Number.isFinite(amount)||amount<0||!Number.isSafeInteger(n)||Math.abs(amount)>100000000)throw Error("Invalid cost allocation");
   remain-=n;return n;
  });
- if(remain<0)throw Error("Allocated costs exceed receipt total");
+ if(!Number.isSafeInteger(remain)||remain<0)throw Error("Allocated costs exceed receipt total or receipt amount is invalid");
  if(!blanks&&remain!==0)throw Error("Costs must sum to "+fmt(total));
  const count=blanks;
  return values.map(n=>{
