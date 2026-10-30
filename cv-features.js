@@ -122,8 +122,8 @@ function cvxOpenSale(ids){
 </div>
 <div class="form-group"><label class="form-label">Sale Notes</label><textarea id="cvx-sale-notes" class="form-textarea" placeholder="Buyer, lot details, etc."></textarea></div>
 <div id="cvx-sale-preview" class="setting-box" style="font-size:13px"></div>
-<button class="btn btn-primary" onclick="cvxCommitSale()">✅ Confirm & Record Sale</button>`;
-  se('cvx-sale-date').value=new Date().toLocaleDateString('en-CA');
+<div id="cvx-sale-error" role="alert" style="display:none;color:var(--red);background:var(--red-dim);border:1px solid var(--red);padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px"></div>\n<button id="cvx-save-sale-btn" type="button" class="btn btn-primary" onclick="cvxCommitSale()">✅ Confirm & Record Sale</button>`;
+  se('cvx-sale-date').value=cvxLocalISODate();
   cvxRenderSaleCandidates();
 }
 
@@ -171,38 +171,62 @@ function cvxAllocateCents(total,weights){
   return result;
 }
 
+function cvxLocalISODate(){
+  const d=new Date();
+  return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+}
+function cvxSaleError(message){
+  const error=se('cvx-sale-error');
+  if(error){error.style.display='block';error.textContent=message;error.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  toast(message,'error');
+}
 function cvxCommitSale(){
-  const p=cvxSaleNumbers(), date=se('cvx-sale-date').value,platform=se('cvx-platform').value;
-  if(!p.selected.length){toast('Select one or more cards','error');return;}
-  if(!Number.isFinite(p.gross)||p.gross<=0){toast('Enter a positive gross sale price','error');return;}
-  if(![p.fees,p.shipping,p.other].every(x=>Number.isFinite(x)&&x>=0)){toast('Fees and expenses cannot be negative','error');return;}
-  if(p.net<0){toast('Expenses exceed sale price. Check totals.','error');return;}
-  if(!date){toast('Enter a sale date','error');return;}
-  if(!confirm('Record sale of '+p.selected.length+' cards for '+fmt(p.gross)+' gross, '+fmt(p.net)+' net? Cards will move to Sold History.'))return;
-  const weights=p.selected.map(c=>Math.max(0,Number(c.cost)||0)),txn='lot-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
-  const gross=cvxAllocateCents(p.gross,weights),fees=cvxAllocateCents(p.fees,weights),shipping=cvxAllocateCents(p.shipping,weights),other=cvxAllocateCents(p.other,weights);
-  const notes=se('cvx-sale-notes').value.trim();
-  const records=p.selected.map((c,i)=>({
-    id:Date.now()+i,cardId:c.id,transactionId:txn,transactionSize:p.selected.length,
-    player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,variation:c.variation,
-    cardNum:c.cardNum,printRun:c.printRun,grade:c.grade,condition:c.condition,cost:Number(c.cost)||0,
-    salePrice:gross[i],fees:fees[i],shipping:shipping[i],otherExpenses:other[i],
-    netProceeds:Math.round((gross[i]-fees[i]-shipping[i]-other[i])*100)/100,
-    pl:Math.round((gross[i]-fees[i]-shipping[i]-other[i]-(Number(c.cost)||0))*100)/100,
-    platform,dateSold:date,notes,photoRef:c.id
-  }));
-  const oldInv=inventory,oldSold=soldHistory;
-  try{
-    soldHistory=[...records,...soldHistory];
-    inventory=inventory.filter(c=>!CVX.saleIds.has(c.id));
-    save();
-  }catch(e){inventory=oldInv;soldHistory=oldSold;toast('Sale not saved: '+e.message,'error');return;}
-  CVX.saleIds.clear();CVX.selected.clear();CVX.multi=false;
-  se('cvx-select-btn').textContent='☑ Select';
-  closeModal('cvx-sale-modal');
-  if(se('modal-detail').classList.contains('open'))closeModal('modal-detail');
-  renderDash();renderInventory();renderPlayers();renderSold();showPage('sold');
-  toast('✅ Sale recorded — '+p.selected.length+' cards','success');
+  const button=se('cvx-save-sale-btn');
+  const message=se('cvx-sale-error');
+  if(message){message.style.display='none';message.textContent='';}
+  try {
+    const p=cvxSaleNumbers(),date=se('cvx-sale-date')?.value||'',platform=se('cvx-platform')?.value||'Other';
+    if(!p.selected.length) return cvxSaleError('Select at least one inventory card before recording the sale.');
+    if(!Number.isFinite(p.gross)||p.gross<=0) return cvxSaleError('Enter a sale price greater than $0.');
+    if(![p.fees,p.shipping,p.other].every(x=>Number.isFinite(x)&&x>=0)) return cvxSaleError('Fees, shipping and other expenses must be zero or greater.');
+    if(p.net<0) return cvxSaleError('Expenses exceed the sale price. Please check the amounts.');
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return cvxSaleError('Choose a valid sale date.');
+    if(!confirm('Record sale of '+p.selected.length+' card(s) for '+fmt(p.gross)+' gross and '+fmt(p.net)+' net? These cards will move to Sold History.')) return;
+    if(button){button.disabled=true;button.textContent='Saving sale…';}
+    const weights=p.selected.map(c=>Math.max(0,Number(c.cost)||0));
+    const txn='lot-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+    const gross=cvxAllocateCents(p.gross,weights),fees=cvxAllocateCents(p.fees,weights),shipping=cvxAllocateCents(p.shipping,weights),other=cvxAllocateCents(p.other,weights);
+    const notes=se('cvx-sale-notes')?.value?.trim()||'';
+    const records=p.selected.map((c,i)=>({
+      id:Date.now()+i,cardId:c.id,transactionId:txn,transactionSize:p.selected.length,
+      player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,variation:c.variation,
+      cardNum:c.cardNum,printRun:c.printRun,grade:c.grade,condition:c.condition,cost:Number(c.cost)||0,
+      salePrice:gross[i],fees:fees[i],shipping:shipping[i],otherExpenses:other[i],
+      netProceeds:Math.round((gross[i]-fees[i]-shipping[i]-other[i])*100)/100,
+      pl:Math.round((gross[i]-fees[i]-shipping[i]-other[i]-(Number(c.cost)||0))*100)/100,
+      platform,dateSold:date,notes,photoRef:c.id
+    }));
+    const oldInv=inventory,oldSold=soldHistory;
+    try {
+      soldHistory=[...records,...soldHistory];
+      inventory=inventory.filter(c=>!CVX.saleIds.has(c.id));
+      save();
+    }catch(err){
+      inventory=oldInv;soldHistory=oldSold;
+      return cvxSaleError('Could not save the sale: '+err.message);
+    }
+    CVX.saleIds.clear();CVX.selected.clear();CVX.multi=false;
+    const selectBtn=se('cvx-select-btn');if(selectBtn)selectBtn.textContent='☑ Select';
+    closeModal('cvx-sale-modal');
+    if(se('modal-detail')?.classList.contains('open'))closeModal('modal-detail');
+    renderDash();renderInventory();renderPlayers();renderSold();showPage('sold');
+    toast('✅ Recorded '+p.selected.length+' sold card(s) — '+fmtPL(p.profit)+' net P&L','success');
+  }catch(err){
+    console.error('CardVault Record Sale:',err);
+    cvxSaleError('Unable to record sale: '+(err?.message||String(err)));
+  }finally{
+    if(button&&button.isConnected){button.disabled=false;button.textContent='✅ Confirm & Record Sale';}
+  }
 }
 
 async function cvxMatchPhotos(event){
