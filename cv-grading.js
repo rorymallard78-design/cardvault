@@ -95,3 +95,107 @@ function cvgCreate(){
  try{cvgSave();closeModal('cvg-modal');showPage('grading');cvgView(rec.id);toast('Grading submission created','success');}
  catch(e){CVG.items=old;cvgError('Could not save submission: '+e.message);}
 }
+
+function cvgView(id){
+ const x=CVG.items.find(v=>v.id===id);if(!x)return;CVG.currentId=id;
+ se('cvg-modal-title').textContent=x.company+' Submission';
+ const expense=(x.feeEach||0)*x.cards.length+(x.outbound||0)+(x.returnShipping||0)+(x.insurance||0)+(x.upcharges||0)+(x.other||0);
+ const num=(name,label,value)=>cvgInput('cvg-'+name,label,'number',value,'min="0" step="0.01" inputmode="decimal"');
+ se('cvg-body').innerHTML='<div class="cvg-mini">Created '+cvgDate(x.date)+' · '+x.cards.length+' cards</div>'+
+ '<div class="cvg-grid">'+
+ '<div class="form-group"><label class="form-label">Status</label><select class="form-select" id="cvg-status">'+cvgStatusOptions(x.status)+'</select></div>'+
+ '<div class="form-group"><label class="form-label">Return Date</label><input class="form-input" id="cvg-return-date" type="date" value="'+cvgEsc(x.returnedDate||'')+'"></div></div>'+
+ cvgInput('cvg-order-edit','Order Number','text',x.order)+cvgInput('cvg-service-edit','Service Level','text',x.service)+
+ '<div class="cvg-box"><b>Actual Grading Expenses</b><div class="cvg-mini">These are added to card basis. Save changes to update cost allocations.</div><div class="cvg-grid">'+
+ num('fee','Fee per Card',x.feeEach)+num('outbound','Outbound Shipping',x.outbound)+num('return','Return Shipping',x.returnShipping)+num('insurance','Insurance',x.insurance)+num('upcharges','Upcharges (Total)',x.upcharges)+num('other','Other Costs',x.other)+'</div>'+
+ '<div class="cvg-mini">Current input total: '+fmt(expense)+' · Already applied: '+fmt(x.expensesApplied||0)+'</div></div>'+
+ '<div class="cvg-box"><b>Cards & Grades</b><div class="cvg-mini">Enter grade and cert when returned; blank grade leaves the original card unchanged.</div>'+
+ x.cards.map((r,i)=>{
+  const c=cvgCard(r.cardId),sold=cvgSold(r.cardId);
+  const label=cvgEsc(cvgLabel(c||sold||{player:'Missing card',year:'',set:''}));
+  return '<div class="cvg-row"><div style="flex:1;min-width:0"><b>'+label+'</b><div class="cvg-mini">Original grade: '+cvgEsc(r.initialGrade||'Raw')+' · '+(c?'Inventory':sold?'Sold':'Not in inventory')+'</div>'+
+  '<div class="cvg-grid" style="margin-top:8px">'+
+  cvgInput('cvg-grade-'+i,'New Grade','text',r.grade||'')+
+  cvgInput('cvg-cert-'+i,'Certification #','text',r.cert||'')+'</div>'+
+  '<div class="cvg-mini">'+(r.resultApplied?'✓ Recorded':'Awaiting result')+'</div></div></div>';
+ }).join('')+'</div>'+
+ '<div class="form-group"><label class="form-label">Submission Notes</label><textarea id="cvg-notes" class="form-input" rows="3">'+cvgEsc(x.notes||'')+'</textarea></div>'+
+ '<div class="cvg-error" id="cvg-error"></div><button class="btn btn-primary" id="cvg-save-btn" onclick="cvgUpdate()">Save Submission & Update Costs</button>'+
+ '<div class="cvg-mini" style="margin:10px 0">Grades update inventory cards only. Sold cards retain their prior sale records. Costs on already-sold cards are not changed automatically.</div>';
+ openModal('cvg-modal');
+}
+function cvgAllocate(total,cardIds){
+ const cents=Math.round(total*100);let left=cents;
+ return Object.fromEntries(cardIds.map((id,i)=>{
+  const centsHere=i===cardIds.length-1?left:Math.floor(cents/cardIds.length);left-=centsHere;return [String(id),centsHere/100];
+ }));
+}
+function cvgUpdate(){
+ const x=CVG.items.find(v=>v.id===CVG.currentId);if(!x)return;
+ const error=se('cvg-error'),btn=se('cvg-save-btn');
+ error.textContent='';
+ const get=name=>Number(se('cvg-'+name)?.value||0);
+ const fee=get('fee'),outbound=get('outbound'),returnShipping=get('return'),insurance=get('insurance'),upcharges=get('upcharges'),other=get('other');
+ if([fee,outbound,returnShipping,insurance,upcharges,other].some(n=>!Number.isFinite(n)||n<0||n>10000000)){error.textContent='Expenses must be valid nonnegative amounts.';return;}
+ const status=se('cvg-status').value;
+ const date=se('cvg-return-date').value;
+ if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date)){error.textContent='Invalid return date';return;}
+ if(status==='returned'&&x.cards.some((r,i)=>!se('cvg-grade-'+i).value.trim())){
+  error.textContent='Enter all returned grades, or use Return Shipping until grades are known.';return;
+ }
+ const proposed=x.cards.map((r,i)=>({...r,grade:se('cvg-grade-'+i).value.trim(),cert:se('cvg-cert-'+i).value.trim()}));
+ const total=Math.round((fee*x.cards.length+outbound+returnShipping+insurance+upcharges+other)*100)/100;
+ const alloc=cvgAllocate(total,x.cards.map(c=>c.cardId));
+ const changed=x.cards.some((r,i)=>r.resultApplied&&r.grade!==proposed[i].grade);
+ if(changed){error.textContent='A previously posted grade cannot be replaced here. Edit that card in inventory or use a new review submission.';return;}
+ // Never silently change the recorded economics of a sold card.
+ if(x.cards.some(c=>!cvgCard(c.cardId)&&Math.abs((alloc[String(c.cardId)]||0)-(x.allocations?.[String(c.cardId)]||0))>0.001)){
+  error.textContent='A card from this submission was sold. Cost edits would require correcting its sale record first.';return;
+ }
+ if(x.cards.some((c,i)=>proposed[i].grade&&!cvgCard(c.cardId)&&!c.resultApplied)){
+  error.textContent='Cannot post a new grade for a card no longer in inventory.';return;
+ }
+ const beforeInventory=inventory.map(c=>({...c})),before=JSON.parse(JSON.stringify(x));
+ const updates=proposed.map((c,i)=>{const orig=x.cards[i],card=cvgCard(c.cardId);return {c,orig,card};});
+ btn.disabled=true;
+ try{
+  for(const {c,orig,card} of updates){
+   if(!card)continue;
+   const oldCharge=Number(x.allocations?.[String(c.cardId)]||0),newCharge=Number(alloc[String(c.cardId)]||0);
+   const diff=Math.round((newCharge-oldCharge)*100)/100;
+   card.cost=Math.round((Number(card.cost||0)+diff)*100)/100;
+   card.gradingCosts=Math.round((Number(card.gradingCosts||0)+diff)*100)/100;
+   if(c.grade&&!orig.resultApplied){
+    card.grade=c.grade;card.condition='Graded';card.certNumber=c.cert||card.certNumber;
+    card.gradingHistory=[...(card.gradingHistory||[]),{submissionId:x.id,company:x.company,grade:c.grade,cert:c.cert,recordedAt:new Date().toISOString()}];
+   }
+  }
+  x.cards=proposed.map((c,i)=>({...c,resultApplied:x.cards[i].resultApplied||Boolean(c.grade)}));
+  Object.assign(x,{status,returnedDate:date,order:se('cvg-order-edit').value.trim(),service:se('cvg-service-edit').value.trim(),feeEach:fee,outbound,returnShipping,insurance,upcharges,other,expensesApplied:total,allocations:alloc,notes:se('cvg-notes').value,statusUpdatedAt:new Date().toISOString()});
+  save();cvgSave();
+  closeModal('cvg-modal');renderDash();renderInventory();renderPlayers();cvgRender();
+  toast('Submission saved · card costs updated','success');
+ }catch(err){
+  inventory=beforeInventory;Object.assign(x,before);
+  try{save();cvgSave();}catch(e){console.error('Grading rollback failed',e);}
+  error.textContent='Save failed: '+err.message;btn.disabled=false;
+ }
+}
+function cvgExport(){return CVG.items.map(x=>({...x,cards:x.cards.map(c=>({...c}))}));}
+function cvgValidateBackup(data){
+ if(data.grading===undefined)return;
+ if(!Array.isArray(data.grading))throw Error('Invalid grading backup');
+ const ids=new Set();
+ for(const x of data.grading){
+  if(!x||!Number.isSafeInteger(Number(x.id))||ids.has(x.id)||!Array.isArray(x.cards)||!['PSA','BGS','SGC','CGC','Other'].includes(x.company)||!['draft','shipped','received','grading','assembly','qa','return-shipped','returned','cancelled'].includes(x.status))throw Error('Invalid grading submission');
+  ids.add(x.id);
+  if(x.cards.some(c=>!Number.isSafeInteger(Number(c.cardId))))throw Error('Invalid grading card');
+ }
+}
+function cvgRestore(data){
+ cvgValidateBackup(data);
+ const old=CVG.items;
+ CVG.items=(data.grading||[]).map(x=>({...x,cards:x.cards.map(c=>({...c}))}));
+ try{cvgSave();}catch(e){CVG.items=old;throw e;}
+}
+if(!new URLSearchParams(location.search).has('gist'))cvgStart();
