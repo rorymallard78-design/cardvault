@@ -325,6 +325,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 #page-inventory .cv-export-fixed-row,#page-sold .cv-export-fixed-row{display:block;width:100%;margin:0 0 14px;min-width:0}
 #page-inventory .cv-export-fixed-button,#page-sold .cv-export-fixed-button{display:block;width:100%;padding:12px;text-align:center;box-sizing:border-box;white-space:normal}
 @media(max-width:390px){#page-inventory .sec-header{grid-template-columns:minmax(0,1fr) auto}#page-inventory .sec-header #cvx-select-btn{grid-column:2;grid-row:2}#page-inventory .sec-header .sec-title{grid-column:1;grid-row:1}}
+
+.chase-card{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:14px;margin-bottom:10px}.chase-top{display:flex;justify-content:space-between;gap:8px}.chase-meta,.chase-notes{font-size:12px;color:var(--text2);margin-top:6px}.chase-priority,.chase-target{font-size:12px;color:var(--gold)}.chase-target{margin-top:6px}.chase-actions{display:flex;gap:8px;margin-top:10px}.chase-link{display:inline-block;margin-top:8px;font-size:12px;color:var(--blue)}
+.nav-btn{min-width:0;letter-spacing:0;font-size:8px;padding-left:1px;padding-right:1px}
 </style>
 </head>
 <body>
@@ -454,6 +457,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
+<div class="page" id="page-chase">
+  <div class="sec-header"><div><div class="sec-title">🎯 Chase List</div><div class="sec-sub" id="chase-count">0 chase cards</div></div><button class="btn-sm gold" onclick="chaseEdit('')">+ Add Chase</button></div>
+  <div class="search-row"><input class="search-input" id="chase-search" placeholder="Search chase cards..." oninput="chaseDisplay()"></div>
+  <div style="display:flex;gap:8px;margin:10px 0 14px"><select class="form-input" id="chase-filter" onchange="chaseDisplay()" style="flex:1"><option>All</option><option>Sports</option><option>Non-Sports</option></select><button class="btn-sm" onclick="chaseExport()">Export CSV</button></div>
+  <div id="chase-list"></div>
+</div>
 <div class="page" id="page-settings">
   <div class="sec-header">
     <div class="sec-title">Settings</div>
@@ -528,6 +537,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <button class="nav-btn" id="nav-players" onclick="showPage('players')"><span class="nav-icon">👤</span>Players</button>
   <button class="nav-btn" id="nav-sold" onclick="showPage('sold')"><span class="nav-icon">✅</span>Sold</button>
   <button class="nav-btn" id="nav-insights" onclick="showPage('insights')"><span class="nav-icon">📈</span>Insights</button>
+  <button class="nav-btn" id="nav-chase" onclick="showPage('chase')"><span class="nav-icon">🎯</span>Chase</button>
 </nav>
 
 <button class="fab" id="fab" onclick="openModal('modal-addmenu')">+</button>
@@ -1197,6 +1207,7 @@ function showPage(name) {
   if(name==='inventory') renderInventory();
   if(name==='players') renderPlayers();
   if(name==='sold') renderSold();
+  if(name==='chase'&&typeof chaseDisplay==='function') chaseDisplay();
   if(name==='insights') {
     // Avoid carrying a stale, empty import overlay into the financial Insights page.
     const importDialog=document.getElementById('cv-import-modal');
@@ -2541,7 +2552,7 @@ function clearAllData(){
     // Normal app mode — seed history stack so back button always has somewhere to go
     // Restore last active page from hash (e.g. #inventory, #sold, #players, #insights)
     const _hash = window.location.hash.replace('#','');
-    const _validPages = ['dash','inventory','players','sold','insights','settings','market'];
+    const _validPages = ['dash','inventory','players','sold','insights','chase','settings','market'];
     const _startPage = _validPages.includes(_hash) ? _hash : 'dash';
     try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
     _pushStay(); _pushStay(); _pushStay();
@@ -2559,7 +2570,7 @@ function clearAllData(){
   if(window.ResizeObserver&&cvNav)new ResizeObserver(syncFabPosition).observe(cvNav);
   window.addEventListener('resize',syncFabPosition);
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4"];
+  const modules=["cv-features.js?v=crash-rollback-v3","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-v1"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
