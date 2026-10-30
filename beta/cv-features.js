@@ -162,14 +162,19 @@ function cvxSalePreview(){
 }
 
 function cvxAllocateCents(total,weights){
-  const cents=Math.round(total*100);
-  const result=[],weightSum=weights.reduce((a,b)=>a+b,0);
-  let remaining=cents;
-  for(let i=0;i<weights.length;i++){
-    const n=i===weights.length-1?remaining:Math.round(cents*(weightSum?weights[i]/weightSum:1/weights.length));
-    result.push(n/100);remaining-=n;
-  }
-  return result;
+  // Largest-remainder allocation: sums match exact cents, with no negative remainder.
+  if(!Array.isArray(weights)||!weights.length)throw new Error('Cannot allocate an empty lot.');
+  const cents=Math.round(Number(total)*100);
+  if(!Number.isSafeInteger(cents)||cents<0)throw new Error('Invalid lot allocation amount.');
+  const values=weights.map(Number);
+  if(values.some(w=>!Number.isFinite(w)||w<0))throw new Error('Invalid lot allocation weight.');
+  const sum=values.reduce((a,b)=>a+b,0);
+  const share=values.map(w=>sum?w/sum:1/values.length);
+  const exact=share.map(w=>cents*w),base=exact.map(Math.floor);
+  let remainder=cents-base.reduce((a,b)=>a+b,0);
+  const order=exact.map((v,i)=>({i,remainder:v-base[i]})).sort((a,b)=>b.remainder-a.remainder||a.i-b.i);
+  for(let i=0;i<remainder;i++)base[order[i].i]++;
+  return base.map(n=>n/100);
 }
 
 function cvxLocalISODate(){
@@ -191,6 +196,7 @@ function cvxCommitSale(){
     if(!Number.isFinite(p.gross)||p.gross<=0) return cvxSaleError('Enter a sale price greater than $0.');
     if(![p.fees,p.shipping,p.other].every(x=>Number.isFinite(x)&&x>=0)) return cvxSaleError('Fees, shipping and other expenses must be zero or greater.');
     if(p.net<0) return cvxSaleError('Expenses exceed the sale price. Please check the amounts.');
+    if(p.selected.some(c=>!Number.isFinite(Number(c.cost))||Number(c.cost)<0))return cvxSaleError('A selected card has an invalid recorded purchase cost. Review its cost before recording the sale.');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return cvxSaleError('Choose a valid sale date.');
     // The visible 'Confirm & Record Sale' button is the confirmation. Android in-app browsers can silently cancel native confirm() dialogs.
     // Do not use confirm() here: a cancelled native dialog makes this button appear broken.
@@ -202,7 +208,7 @@ function cvxCommitSale(){
     const records=p.selected.map((c,i)=>({
       id:Date.now()+i,cardId:c.id,transactionId:txn,transactionSize:p.selected.length,
       player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,variation:c.variation,
-      cardNum:c.cardNum,printRun:c.printRun,grade:c.grade,condition:c.condition,cost:Number(c.cost)||0,
+      cardNum:c.cardNum,printRun:c.printRun,grade:c.grade,condition:c.condition,cost:Number(c.cost)||0,basisStatus:c.basisStatus||undefined,gradingCosts:Number(c.gradingCosts||0),
       salePrice:gross[i],fees:fees[i],shipping:shipping[i],otherExpenses:other[i],
       netProceeds:Math.round((gross[i]-fees[i]-shipping[i]-other[i])*100)/100,
       pl:Math.round((gross[i]-fees[i]-shipping[i]-other[i]-(Number(c.cost)||0))*100)/100,
