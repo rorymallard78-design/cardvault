@@ -37,7 +37,7 @@ function cviData(){
  const verified=sales.filter(s=>['known','free'].includes(s.status));
  const estimated=sales.filter(s=>s.status==='estimated');
  const uncertain=sales.filter(s=>s.status==='unknown');
- const investment=verified.filter(s=>s.cost>0);
+ const investment=verified.filter(s=>s.status==='known'&&s.cost>0);
  const inventorySet=CVI.platform==='all'?inventory.filter(c=>(CVI.player==='all'||c.player===CVI.player)&&(CVI.sport==='all'||c.sport===CVI.sport)):[];
  const priced=inventorySet.filter(c=>!c.needsPricing&&Number(c.value)>0&&Number.isFinite(Number(c.value))&&cviCostStatus(c)!=='unknown'&&cviCostStatus(c)!=='estimated');
  const sum=(arr,key)=>cviRound(arr.reduce((n,o)=>n+cviNum(o[key]),0));
