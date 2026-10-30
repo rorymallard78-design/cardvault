@@ -17,9 +17,10 @@ function cvgStart(){
   const modal=document.createElement('div');modal.className='overlay';modal.id='cvg-modal';modal.style.zIndex='420';
   modal.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title" id="cvg-modal-title">Grading</div><button class="sheet-close" onclick="closeModal(\'cvg-modal\')">✕</button></div><div class="sheet-body" id="cvg-body"></div></div>';
   document.body.append(modal);
-  const old=showPage;showPage=function(name){old(name);if(name==='grading')cvgRender();};
+  const old=showPage;showPage=function(name){old(name);if(name==='grading')cvgRender();if(name==='insights')cvgRenderAnalytics();};
   const quick=se('page-dash').querySelector('.dash-grid');
   if(quick){const d=document.createElement('div');d.id='cvg-dash';quick.before(d);}
+  const insight=se('page-insights');if(insight){const panel=document.createElement('div');panel.id='cvg-analytics';insight.querySelector('.sec-header')?.after(panel);}
   cvgDash();
 }
 function cvgSave(){localStorage.setItem(CVG.key,JSON.stringify(CVG.items));}
@@ -199,3 +200,34 @@ function cvgRestore(data){
  try{cvgSave();}catch(e){CVG.items=old;throw e;}
 }
 if(!new URLSearchParams(location.search).has('gist'))cvgStart();
+
+
+function cvgRenderAnalytics(){
+ const host=se('cvg-analytics');if(!host)return;
+ const sales=soldHistory.map(s=>{
+  const cost=Number(s.cost||0),sale=Number(s.salePrice||0),fees=Number(s.fees||0),shipping=Number(s.shipping||0),other=Number(s.otherExpenses||0);
+  const realized=Number.isFinite(Number(s.pl))?Number(s.pl):sale-fees-shipping-other-cost;
+  return {date:s.dateSold||s.soldDate||'',platform:s.platform||'Other',sport:s.sport||'Other',profit:realized,cost,net:Number.isFinite(Number(s.netProceeds))?Number(s.netProceeds):sale-fees-shipping-other};
+ });
+ const totalCost=sales.reduce((a,s)=>a+s.cost,0),net=sales.reduce((a,s)=>a+s.net,0),profit=sales.reduce((a,s)=>a+s.profit,0),wins=sales.filter(s=>s.profit>0).length;
+ const valued=inventory.filter(c=>Number(c.value)>0&&!c.needsPricing);
+ const unpriced=inventory.length-valued.length;
+ const basis=valued.reduce((a,c)=>a+Number(c.cost||0),0),value=valued.reduce((a,c)=>a+Number(c.value||0),0),unreal=value-basis;
+ const pct=v=>Number.isFinite(v)?v.toFixed(1)+'%':'N/A';
+ const card=(label,val,sub)=>'<div class="cvg-stat"><strong>'+val+'</strong><span>'+label+'</span>'+(sub?'<div class="cvg-mini">'+sub+'</div>':'')+'</div>';
+ const groups=(key)=>{const m={};for(const s of sales){const k=String(s[key]||'Other');(m[k]??={count:0,profit:0,cost:0});m[k].count++;m[k].profit+=s.profit;m[k].cost+=s.cost;}return Object.entries(m).sort((a,b)=>b[1].profit-a[1].profit).slice(0,8);};
+ const groupTable=(title,data)=>'<div class="cvg-box"><b>'+title+'</b>'+(data.length?data.map(([k,v])=>'<div style="display:flex;justify-content:space-between;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px">'+cvgEsc(k)+' <span class="cvg-mini">('+v.count+')</span></span><span style="font-size:12px;color:'+(v.profit>=0?'var(--green)':'var(--red)')+'">'+fmtPL(v.profit)+'</span></div>').join(''):'<div class="cvg-mini">No recorded sales</div>')+'</div>';
+ const byMonth={};for(const s of sales){const m=/^\d{4}-\d{2}/.exec(String(s.date));if(!m)continue;byMonth[m[0]]=(byMonth[m[0]]||0)+s.profit;}
+ const months=Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
+ host.innerHTML='<div class="cvg-box" style="border-color:var(--gold)"><div style="font-weight:700;margin-bottom:10px">Investment Performance · Lifetime</div><div class="cvg-grid">'+
+ card('Realized Profit',fmtPL(profit),sales.length+' sold cards')+
+ card('Realized ROI',totalCost>0?pct(profit/totalCost*100):'N/A','Profit ÷ recorded sold-card basis')+
+ card('Win Rate',sales.length?pct(wins/sales.length*100):'N/A',wins+' profitable sales')+
+ card('Net Sale Proceeds',fmt(net),'After recorded sale expenses')+
+ card('Unrealized P&L',fmtPL(unreal),valued.length+' priced inventory cards')+
+ card('Unrealized ROI',basis>0?pct(unreal/basis*100):'N/A',unpriced+' cards need pricing')+
+ '</div><div class="cvg-mini" style="margin-top:10px">ROI uses recorded card cost including grading charges on inventory cards. Existing historical sales are not retroactively adjusted. Missing market values are excluded from unrealized performance; neither holding time nor daily returns are included.</div></div>'+
+ groupTable('Realized Profit by Selling Platform',groups('platform'))+
+ groupTable('Realized Profit by Sport',groups('sport'))+
+ '<div class="cvg-box"><b>Recent Monthly Realized Profit</b>'+(months.length?months.map(([m,p])=>'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><span class="cvg-mini">'+cvgEsc(m)+'</span><b style="font-size:12px;color:'+(p>=0?'var(--green)':'var(--red)')+'">'+fmtPL(p)+'</b></div>').join(''):'<div class="cvg-mini">No dated sales</div>')+'</div>';
+}
