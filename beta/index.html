@@ -833,6 +833,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
+<script src="cv-recovery.js?v=checkpoint-v1"></script>
 <script>
 // ===== DATA =====
 const KEYS = { inv:'cv_beta_inventory', sold:'cv_beta_sold', ai:'cv_beta_apikey', ebay:'cv_beta_ebaykey', psa:'cv_beta_psakey', share:'cv_beta_sharekey', gist:'cv_beta_gisttoken', backup:'cv_beta_backup', backupSold:'cv_beta_backup_sold' };
@@ -2471,6 +2472,15 @@ function clearAllData(){
 
 // ===== INIT =====
 (async () => {
+  try {
+    const recovered=await cvRecoveryStartup();
+    if(recovered)console.warn('CardVault recovered a previously interrupted restore.');
+  } catch(error) {
+    console.error('CardVault recovery blocked startup',error);
+    document.body.innerHTML='<div style="padding:30px;color:#fff;background:#171723;min-height:100vh;font-family:sans-serif"><h2>Recovery needs attention</h2><p>CardVault could not safely recover a previously interrupted restore. Your saved recovery checkpoint was retained. Please close other CardVault tabs and reload. Do not clear browser data.</p><p id="recovery-error"></p></div>';
+    document.getElementById('recovery-error').textContent=error.message;
+    return;
+  }
   await load();
   document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   // Check for ?bin= share param FIRST before any history changes
@@ -2487,13 +2497,21 @@ function clearAllData(){
     _pushStay(); _pushStay(); _pushStay();
     showPage(_startPage);
   }
+  // Extensions load only after crash recovery and core inventory initialization.
+  const modules=["cv-features.js?v=restore-reconcile-v2","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=tile-grid-v4"];
+  for(const path of modules){
+    await new Promise((resolve,reject)=>{
+      const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
+      document.body.appendChild(script);
+    });
+  }
 })();
 </script>
-<script src="cv-features.js?v=restore-reconcile-v2"></script>
-<script src="cv-receipts.js?v=finance-audit-1"></script>
-<script src="cv-grading.js?v=restore-reconcile-v2"></script>
-<script src="cv-dashboard.js?v=dash-clean-v1"></script>
-<script src="cv-insights.js?v=tile-grid-v4"></script>
+
+
+
+
+
 <script>
 function cvBetaLoadDemo(){
  if(inventory.length&&!confirm('Replace this TEST inventory with five demo cards?'))return;
