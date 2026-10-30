@@ -192,7 +192,8 @@ function cvxCommitSale(){
     if(![p.fees,p.shipping,p.other].every(x=>Number.isFinite(x)&&x>=0)) return cvxSaleError('Fees, shipping and other expenses must be zero or greater.');
     if(p.net<0) return cvxSaleError('Expenses exceed the sale price. Please check the amounts.');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return cvxSaleError('Choose a valid sale date.');
-    if(!confirm('Record sale of '+p.selected.length+' card(s) for '+fmt(p.gross)+' gross and '+fmt(p.net)+' net? These cards will move to Sold History.')) return;
+    // The visible 'Confirm & Record Sale' button is the confirmation. Android in-app browsers can silently cancel native confirm() dialogs.
+    // Do not use confirm() here: a cancelled native dialog makes this button appear broken.
     if(button){button.disabled=true;button.textContent='Saving sale…';}
     const weights=p.selected.map(c=>Math.max(0,Number(c.cost)||0));
     const txn='lot-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
