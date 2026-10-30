@@ -197,7 +197,7 @@ function cvrBuy(){
 function cvrBuyRead(){
   CVR.buyRows=CVR.buyRows.map((old,i)=>{
     const row={...old};
-    for(const key of ["player","year","sport","team","set","cardNum","variation","printRun","condition","grade","certNumber","cost"]){
+    for(const key of ["player","year","sport","team","set","cardNum","variation","printRun","condition","grade","certNumber","cost","value"]){
       const input=se("cvr-buy-"+i+"-"+key);
       if(input)row[key]=input.value;
     }
@@ -245,12 +245,12 @@ function cvrBuyForm(){
    '<div class="cvr-flex">'+fld(i,"cardNum","Card #")+fld(i,"variation","Parallel / Variation")+'</div>'+
    '<div class="cvr-flex">'+fld(i,"printRun","Print Run")+fld(i,"grade","Grade")+'</div>'+
    '<div class="cvr-flex">'+fld(i,"certNumber","Cert Number")+'<div class="form-group"><label class="form-label">Condition</label><select class="form-select" id="cvr-buy-'+i+'-condition">'+condOptions+'</select></div></div>'+
-   '<div class="form-group"><label class="form-label">Allocated Purchase Cost ($) — optional</label><input class="form-input" type="number" min="0" step=".01" id="cvr-buy-'+i+'-cost" value="'+cvxEsc(row.cost??"")+'" placeholder="Split remaining amount evenly"></div></div>';
+   '<div class="cvr-flex"><div class="form-group"><label class="form-label">Purchase Cost ($)</label><input class="form-input" type="number" min="0" step=".01" inputmode="decimal" id="cvr-buy-'+i+'-cost" value="'+cvxEsc(row.cost??"")+'" placeholder="Auto-allocate"></div>'+'<div class="form-group"><label class="form-label">Current Market Value ($)</label><input class="form-input" type="number" min="0" step=".01" inputmode="decimal" id="cvr-buy-'+i+'-value" value="'+cvxEsc(row.value??"")+'" placeholder="Optional · price later"></div></div></div>';
  }).join("");
  se("cvr-body").innerHTML='<div style="padding:10px;border-radius:8px;background:var(--gold-dim);font-size:13px;margin-bottom:12px">📷 <b>Step 1:</b> Pick a photo for each card. &nbsp;✨ <b>Step 2:</b> Identify it with AI or enter details manually. &nbsp;✅ <b>Step 3:</b> Save cards to inventory.</div>'+
   '<div class="cvr-mini">Receipt total '+fmt(receipt.amount)+' · '+cvrDate(receipt.at)+' · '+photos.length+' receipt photo(s) · <b>Photo workflow v2</b></div>'+
   rows+'<button class="btn btn-secondary" onclick="cvrBuyAdd()">+ Another Card</button>'+
-  '<div class="cvr-mini" style="margin:10px 0">Blank cost amounts split the remaining total evenly. Unpriced cards are flagged Needs Pricing.</div>'+
+  '<div class="cvr-mini" style="margin:10px 0">Blank purchase costs split the remaining total evenly. Market value is optional; leave it blank to mark the card Needs Pricing.</div>'+
   '<div id="cvr-buy-error" style="color:var(--red);font-size:12px;margin:10px 0"></div><button id="cvr-buy-save" class="btn btn-primary" onclick="cvrBuyPost()">✅ Save Cards to Inventory</button><button class="btn btn-secondary" onclick="cvrView(CVR.activeId)">← Back to Receipt</button>';
 }
 function cvrCosts(total,inputs){
@@ -279,6 +279,11 @@ async function cvrBuyPost(){
   let costs;
   try{costs=cvrCosts(receipt.amount,rows.map(r=>r.cost));}
   catch(err){error.textContent=err.message;return;}
+  const values=rows.map(r=>r.value===""||r.value==null?0:Number(r.value));
+  if(values.some(v=>!Number.isFinite(v)||v<0||v>100000000)){
+    error.textContent="Current market values must be valid nonnegative dollar amounts, or left blank.";
+    return;
+  }
   const oldInventory=inventory,oldReceipt={...receipt},btn=se("cvr-buy-save"),created=[];
   btn.disabled=true;btn.textContent="Saving card photos…";
   try{
@@ -289,7 +294,7 @@ async function cvrBuyPost(){
       cards.push({
         id,player:r.player,sport:r.sport||"Other",year:r.year||"",team:r.team||"",set:r.set||"",cardNum:r.cardNum||"",
         variation:r.variation||"",printRun:r.printRun||"",condition:r.grade?"Graded":r.condition||"Raw",grade:r.grade||"",
-        certNumber:r.certNumber||"",cost:costs[i],value:0,needsPricing:true,
+        certNumber:r.certNumber||"",cost:costs[i],value:Math.round(values[i]*100)/100,needsPricing:!(values[i]>0),
         notes:"Card show receipt"+(receipt.notes?" · "+receipt.notes:""),photo:savedPhoto,
         dateAdded:new Date().toISOString(),purchaseDate:receipt.at,receiptId:receipt.id
       });
@@ -424,5 +429,5 @@ function cvrScanMessage(i,message){
 }
 
 function cvrBlankRow(sourceIndex=-1){
-  return {player:"",year:"",sport:"Other",team:"",set:"",cardNum:"",variation:"",printRun:"",condition:"Raw",grade:"",certNumber:"",cost:"",sourceIndex,photoData:null,scanStatus:""};
+  return {player:"",year:"",sport:"Other",team:"",set:"",cardNum:"",variation:"",printRun:"",condition:"Raw",grade:"",certNumber:"",cost:"",value:"",sourceIndex,photoData:null,scanStatus:""};
 }
