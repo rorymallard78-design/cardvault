@@ -30,7 +30,7 @@ function cvxInit(){
   if(dataBox){
     const div=document.createElement('div');
     div.style.marginTop='12px';
-    div.innerHTML='<button class="btn btn-secondary" onclick="cvxExportBackup()">⬇ Export Complete Backup (Including Photos)</button><input id="cvx-restore-file" type="file" accept=".json,application/json" style="display:none" onchange="cvxImportBackup(event)"><button class="btn btn-secondary" onclick="se(\'cvx-restore-file\').click()">⬆ Restore from Backup</button><div class="cvx-mini">Keep the exported file somewhere safe, outside this browser. Restoring replaces your current collection.</div>';
+    div.innerHTML='<button class="btn btn-secondary" onclick="cvxExportBackup()">⬇ Export Complete Backup (Including Photos)</button><input id="cvx-restore-file" type="file" accept=".json,application/json" style="display:none" onchange="cvxImportBackup(event)"><button class="btn btn-secondary" onclick="se(\'cvx-restore-file\').click()">⬆ Restore from Backup</button><div class="cvx-mini">Keep the exported file somewhere safe, outside this browser. Restoring replaces your current collection.</div><div id="cvx-restore-confirm" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--gold);border-radius:8px"></div>';
     dataBox.insertBefore(div,dataBox.lastElementChild);
   }
   const modal=document.createElement('div');modal.className='overlay';modal.id='cvx-sale-modal';modal.style.zIndex='375';
@@ -350,6 +350,7 @@ function cvxRenderSold(){
 async function cvxExportBackup(){
  try{
   const photos=await dbGetAllPhotos();
+  inventory.forEach(c=>{if(c.photo&&!photos[c.id])photos[c.id]=c.photo;});
   const data={format:'CardVaultFullBackup',version:1,exportedAt:new Date().toISOString(),inventory:inventory.map(c=>({...c})),soldHistory:soldHistory.map(c=>({...c})),photos};
   const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
   const a=document.createElement('a');a.href=url;a.download='cardvault-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();
@@ -357,11 +358,23 @@ async function cvxExportBackup(){
  }catch(e){toast('Backup export failed: '+e.message,'error');}
 }
 async function cvxImportBackup(e){
- const f=e.target.files?.[0];e.target.value='';if(!f)return;
+ const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ const panel=se('cvx-restore-confirm');if(!panel){toast('Restore panel is missing','error');return;}
  try{
-  const data=JSON.parse(await f.text());
-  if(data.format!=='CardVaultFullBackup'||!Array.isArray(data.inventory)||!Array.isArray(data.soldHistory)||!data.photos||typeof data.photos!=='object')throw new Error('Not a valid CardVault backup');
-  if(!confirm('Replace your current collection and sold history with this backup? This cannot be undone.'))return;
+  const data=JSON.parse(await file.text());
+  if(data.format!=='CardVaultFullBackup'||data.version!==1||!Array.isArray(data.inventory)||!Array.isArray(data.soldHistory)||!data.photos||typeof data.photos!=='object'||Array.isArray(data.photos))throw new Error('Invalid CardVault backup');
+  if(!data.inventory.every(c=>c&&typeof c.player==='string'&&Number.isSafeInteger(Number(c.id)))||!data.soldHistory.every(c=>c&&typeof c.player==='string'))throw new Error('Invalid card or sale data');
+  CVX.pendingBackup=data;
+  panel.style.display='block';panel.innerHTML="<div style=\"font-weight:700;color:var(--gold);margin-bottom:8px\">Review Backup Before Restoring</div><div class=\"cvx-mini\" id=\"cvx-restore-summary\" style=\"margin-bottom:12px\"></div><div class=\"cvx-mini\">Type RESTORE to confirm replacing this beta inventory and sold history:</div><input class=\"form-input\" id=\"cvx-restore-phrase\" placeholder=\"RESTORE\" autocomplete=\"off\"><div style=\"display:flex;gap:8px;margin-top:10px\"><button class=\"btn btn-danger\" onclick=\"cvxPerformRestore()\">Replace Beta Data</button><button class=\"btn btn-secondary\" onclick=\"cvxCancelRestore()\">Cancel</button></div>";
+  se('cvx-restore-summary').textContent='Backup: '+data.inventory.length+' inventory cards, '+data.soldHistory.length+' sales, '+Object.keys(data.photos).length+' photos. Current: '+inventory.length+' inventory cards, '+soldHistory.length+' sales. This replaces the CURRENT TEST VAULT only.';
+ }catch(err){CVX.pendingBackup=null;panel.style.display='block';panel.textContent='Backup not accepted: '+err.message;toast('Invalid backup: '+err.message,'error');}
+}
+function cvxCancelRestore(){CVX.pendingBackup=null;const el=se('cvx-restore-confirm');if(el){el.style.display='none';el.textContent='';}}
+async function cvxPerformRestore(){
+ const data=CVX.pendingBackup;
+ if(!data){toast('Choose a backup first','error');return;}
+ if(se('cvx-restore-phrase')?.value!=='RESTORE'){toast('Type RESTORE to confirm','error');return;}
+ try{
   const db=await openPhotoDB();const previousPhotos=await dbGetAllPhotos();
   const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');store.clear();
   Object.entries(data.photos).forEach(([id,photo])=>{if(photo)store.put({id:Number(id)||id,data:photo});});
@@ -372,9 +385,11 @@ async function cvxImportBackup(e){
    const rollback=db.transaction('photos','readwrite'),obj=rollback.objectStore('photos');obj.clear();Object.entries(previousPhotos).forEach(([id,photo])=>obj.put({id:Number(id)||id,data:photo}));
    throw err;
   }
+  CVX.pendingBackup=null;
   location.reload();
- }catch(err){toast('Restore failed: '+err.message,'error');}
+ }catch(err){toast('Restore failed: '+err.message,'error');const p=se('cvx-restore-confirm');if(p)p.textContent='Restore failed: '+err.message;}
 }
+
 function cvxClearAllData(){
  if(!confirm('Delete ALL inventory and sold history?'))return;
  if(!confirm('This removes local photos and backups too. Continue?'))return;
