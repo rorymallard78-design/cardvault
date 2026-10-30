@@ -1,0 +1,166 @@
+{
+  "asOf": "2026-10-30",
+  "sourceNote": "Editorial snapshot of publisher calendars as of October 30, 2026. Dates change; verify publisher before buying.",
+  "events": [
+    {
+      "id": "topps-chrome-update-2026-pre",
+      "brand": "Topps",
+      "title": "2026 Topps Chrome Update Series Baseball",
+      "sport": "Baseball",
+      "date": "2026-11-02",
+      "time": "12:00 PM ET",
+      "type": "Preorder",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-bowman-u-signature-2026-pre",
+      "brand": "Topps",
+      "title": "2026 Bowman U Signature Football",
+      "sport": "Football",
+      "date": "2026-11-02",
+      "time": "1:00 PM ET",
+      "type": "Preorder",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-cosmic-2026",
+      "brand": "Topps",
+      "title": "2026 Topps Cosmic Chrome Baseball",
+      "sport": "Baseball",
+      "date": "2026-11-04",
+      "time": "12:00 PM ET",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-mint-disney-2026",
+      "brand": "Topps",
+      "title": "2026 Topps Mint Disney",
+      "sport": "Non-Sports",
+      "date": "2026-11-04",
+      "time": "2:00 PM ET",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-flagship-basketball-2627",
+      "brand": "Topps",
+      "title": "2026–27 Topps Flagship Basketball",
+      "sport": "Basketball",
+      "date": "2026-11-05",
+      "time": "12:00 PM ET",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-inception-football-2026",
+      "brand": "Topps",
+      "title": "2026 Topps Inception Football",
+      "sport": "Football",
+      "date": "2026-11-06",
+      "time": "12:00 PM ET",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-stadium-club-football-2026-pre",
+      "brand": "Topps",
+      "title": "2026 Topps Stadium Club Football",
+      "sport": "Football",
+      "date": "2026-11-09",
+      "time": "",
+      "type": "Preorder",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-hoops-basketball-2627",
+      "brand": "Topps",
+      "title": "2026–27 Topps Hoops Basketball",
+      "sport": "Basketball",
+      "date": "2026-11-10",
+      "time": "",
+      "type": "Preorder",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-museum-baseball-2026",
+      "brand": "Topps",
+      "title": "2026 Topps Museum Collection Baseball",
+      "sport": "Baseball",
+      "date": "2026-11-11",
+      "time": "",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-midnight-football-2026",
+      "brand": "Topps",
+      "title": "2026 Topps Midnight Football",
+      "sport": "Football",
+      "date": "2026-11-13",
+      "time": "",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-prodebut-baseball-2026",
+      "brand": "Topps",
+      "title": "2026 Topps Pro Debut Baseball",
+      "sport": "Baseball",
+      "date": "2026-11-18",
+      "time": "",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "topps-gilded-baseball-2026",
+      "brand": "Topps",
+      "title": "2026 Topps Gilded Collection Baseball",
+      "sport": "Baseball",
+      "date": "2026-11-25",
+      "time": "",
+      "type": "Scheduled drop",
+      "url": "https://www.topps.com/release-calendar"
+    },
+    {
+      "id": "panini-absolute-football-fotl-2026",
+      "brand": "Panini",
+      "title": "2026 Panini Absolute Football — 1st Off the Line",
+      "sport": "Football",
+      "date": "",
+      "time": "",
+      "type": "Coming soon",
+      "url": "https://www.paniniamerica.net/coming-soon.html"
+    },
+    {
+      "id": "panini-prizm-wnba-2026",
+      "brand": "Panini",
+      "title": "2026 Panini Prizm WNBA Premium Box Set",
+      "sport": "Basketball",
+      "date": "",
+      "time": "",
+      "type": "Coming soon",
+      "url": "https://www.paniniamerica.net/coming-soon.html"
+    },
+    {
+      "id": "panini-national-treasures-fifa-2526",
+      "brand": "Panini",
+      "title": "2025–26 Panini National Treasures Road to FIFA World Cup 2026",
+      "sport": "Soccer",
+      "date": "",
+      "time": "",
+      "type": "Coming soon",
+      "url": "https://www.paniniamerica.net/coming-soon.html"
+    },
+    {
+      "id": "panini-flawless-fifa-2026",
+      "brand": "Panini",
+      "title": "2026 Panini Flawless FIFA World Cup",
+      "sport": "Soccer",
+      "date": "",
+      "time": "",
+      "type": "Coming soon",
+      "url": "https://www.paniniamerica.net/coming-soon.html"
+    }
+  ]
+}
