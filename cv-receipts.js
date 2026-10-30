@@ -174,3 +174,95 @@ function cvrSell(){
  se("cvx-sale-date").value=new Date(r.at).toLocaleDateString("en-CA");
  se("cvx-sale-notes").value=r.notes;cvxSalePreview();
 }
+
+function cvrBuy(){
+ const r=CVR.items.find(x=>x.id===CVR.activeId);if(!r||r.status!=="pending"||r.kind!=="buy")return;
+ CVR.buyRows=[{player:"",year:"",sport:"Other",set:"",variation:"",cost:""}];cvrBuyForm();
+}
+function cvrBuyRead(){
+ CVR.buyRows=CVR.buyRows.map((r,i)=>{
+  const x={...r};for(const k of ["player","year","sport","set","variation","cost"]){const el=se("cvr-buy-"+i+"-"+k);if(el)x[k]=el.value;}return x;
+ });
+}
+function cvrBuyAdd(){cvrBuyRead();CVR.buyRows.push({});cvrBuyForm();}
+function cvrBuyRemove(i){cvrBuyRead();CVR.buyRows.splice(i,1);if(!CVR.buyRows.length)CVR.buyRows.push({});cvrBuyForm();}
+function cvrBuyForm(){
+ const r=CVR.items.find(x=>x.id===CVR.activeId);if(!r)return;
+ se("cvr-modal-title").textContent="Process Purchase";
+ const row=CVR.buyRows.map((v,i)=>'<div class="cvr-section"><div class="cvr-flex"><b>Card '+(i+1)+'</b><button class="btn-sm" onclick="cvrBuyRemove('+i+')">Remove</button></div>'+
+ '<div class="form-group"><label class="form-label">Player *</label><input class="form-input" id="cvr-buy-'+i+'-player" value="'+cvxEsc(v.player||"")+'"></div>'+
+ '<div class="cvr-flex"><div class="form-group"><label class="form-label">Year</label><input class="form-input" id="cvr-buy-'+i+'-year" value="'+cvxEsc(v.year||"")+'"></div><div class="form-group"><label class="form-label">Sport</label><select class="form-select" id="cvr-buy-'+i+'-sport">'+["Other","Basketball","Baseball","Football","Hockey"].map(s=>'<option '+((v.sport||"Other")===s?"selected":"")+'>'+s+'</option>').join("")+'</select></div></div>'+
+ '<div class="form-group"><label class="form-label">Set / Brand</label><input class="form-input" id="cvr-buy-'+i+'-set" value="'+cvxEsc(v.set||"")+'"></div>'+
+ '<div class="form-group"><label class="form-label">Variation / Parallel</label><input class="form-input" id="cvr-buy-'+i+'-variation" value="'+cvxEsc(v.variation||"")+'"></div>'+
+ '<div class="form-group"><label class="form-label">Allocated Purchase Cost ($) — optional</label><input class="form-input" id="cvr-buy-'+i+'-cost" type="number" min="0" step=".01" value="'+cvxEsc(v.cost??"")+'" placeholder="Split unallocated cost evenly"></div></div>').join("");
+ se("cvr-body").innerHTML='<div class="cvr-mini">Receipt '+fmt(r.amount)+' · '+cvrDate(r.at)+'</div><div class="cvr-mini" style="margin:12px 0">Identify cards manually. Blank cost allocations split the remainder equally. No estimated market values are invented.</div>'+row+'<button class="btn btn-secondary" onclick="cvrBuyAdd()">+ Add Card</button><div id="cvr-buy-error" style="color:var(--red);font-size:12px;margin:10px 0"></div><button id="cvr-buy-save" class="btn btn-primary" onclick="cvrBuyPost()">✅ Add to Inventory</button><button class="btn btn-secondary" onclick="cvrView(CVR.activeId)">← Back</button>';
+}
+function cvrCosts(total,inputs){
+ let remain=Math.round(total*100),blanks=0;
+ const values=inputs.map(v=>{
+  if(v==null||v===""){blanks++;return null;}
+  const n=Math.round(Number(v)*100);
+  if(!Number.isFinite(n)||n<0)throw Error("Invalid cost allocation");
+  remain-=n;return n;
+ });
+ if(remain<0)throw Error("Allocated costs exceed receipt total");
+ if(!blanks&&remain!==0)throw Error("Costs must sum to "+fmt(total));
+ const count=blanks;
+ return values.map(n=>{
+  if(n!==null)return n/100;
+  const cents=Math.floor(remain/blanks);remain-=cents;blanks--;
+  return cents/100;
+ });
+}
+function cvrBuyPost(){
+ const r=CVR.items.find(x=>x.id===CVR.activeId);if(!r||r.kind!=="buy"||r.status!=="pending")return;
+ cvrBuyRead();
+ const error=se("cvr-buy-error"),rows=CVR.buyRows.map(x=>({...x,player:(x.player||"").trim()}));
+ if(rows.some(x=>!x.player)){error.textContent="Enter a player for every card";return;}
+ let costs;
+ try{costs=cvrCosts(r.amount,rows.map(x=>x.cost));}catch(e){error.textContent=e.message;return;}
+ const old=inventory,oldR={...r},btn=se("cvr-buy-save");
+ btn.disabled=true;btn.textContent="Saving…";
+ const cards=rows.map((v,i)=>({id:newId(),player:v.player,sport:v.sport||"Other",year:v.year||"",team:"",set:v.set||"",cardNum:"",variation:v.variation||"",printRun:"",condition:"Raw",grade:"",certNumber:"",cost:costs[i],value:0,needsPricing:true,notes:"Card show receipt"+(r.notes?" · "+r.notes:""),photo:null,dateAdded:r.at,purchaseDate:r.at,receiptId:r.id}));
+ try{
+  inventory=[...cards,...inventory];save();
+  r.status="processed";r.cardIds=cards.map(c=>c.id);r.processedAt=new Date().toISOString();cvrSaveMeta();
+  closeModal("modal-receipts");renderDash();renderInventory();renderPlayers();showPage("receipts");toast(cards.length+" cards added from receipt","success");
+ }catch(e){
+  inventory=old;Object.assign(r,oldR);
+  try{save();cvrSaveMeta();}catch(x){console.error(x)}
+  error.textContent="Purchase failed: "+e.message;btn.disabled=false;btn.textContent="✅ Add to Inventory";
+ }
+}
+async function cvrExport(){
+ const receiptPhotos={};
+ for(const r of CVR.items)receiptPhotos[r.id]=await cvrPhotos(r.id);
+ return {receipts:CVR.items.map(r=>({...r})),receiptPhotos};
+}
+function cvrCheckBackup(data){
+ if(data.receipts===undefined&&data.receiptPhotos===undefined)return;
+ if(!Array.isArray(data.receipts)||!data.receiptPhotos||typeof data.receiptPhotos!=="object")throw Error("Invalid receipt backup");
+ for(const r of data.receipts){
+  if(!r||!Number.isSafeInteger(Number(r.id))||!["buy","sell","trade"].includes(r.kind)||!["pending","processed"].includes(r.status))throw Error("Invalid receipt data");
+  const ps=data.receiptPhotos[r.id]||[];
+  if(!Array.isArray(ps)||ps.some(p=>typeof p!=="string"||!p.startsWith("data:image/")))throw Error("Invalid receipt images");
+ }
+}
+async function cvrRestore(data){
+ cvrCheckBackup(data);
+ const receipts=(data.receipts||[]).map(r=>({...r})),photos=data.receiptPhotos||{};
+ const db=await cvrDB(),old=await cvrExport();
+ async function write(items,images){
+  await new Promise((yes,no)=>{
+   const tx=db.transaction("photos","readwrite"),store=tx.objectStore("photos");store.clear();
+   for(const r of items)store.put({id:r.id,photos:images[r.id]||[]});
+   tx.oncomplete=yes;tx.onerror=()=>no(tx.error);tx.onabort=()=>no(tx.error);
+  });
+ }
+ try{
+  await write(receipts,photos);CVR.items=receipts;cvrSaveMeta();
+ }catch(e){
+  try{await write(old.receipts,old.receiptPhotos);CVR.items=old.receipts;cvrSaveMeta();}catch(x){console.error("Receipt restore rollback failure",x);}
+  throw e;
+ }
+}
