@@ -1093,8 +1093,19 @@ function applyChatGPTValue(){
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && _pendingVal()){ try{ renderDash(); renderInventory(); }catch(e){} } });
 
 async function load() {
-  try { inventory = JSON.parse(localStorage.getItem(KEYS.inv)||'[]'); } catch(e){ inventory=[]; }
-  try { soldHistory = JSON.parse(localStorage.getItem(KEYS.sold)||'[]'); } catch(e){ soldHistory=[]; }
+  // A correctly saved empty inventory is intentional (all cards may have been sold).
+  // Only consider the fallback backup when the primary inventory key is missing or corrupt.
+  const primaryInventory=localStorage.getItem(KEYS.inv);
+  let recoverMissingInventory=primaryInventory===null;
+  try {
+    const parsed=JSON.parse(primaryInventory===null?'[]':primaryInventory);
+    if(!Array.isArray(parsed))throw new Error('Invalid inventory format');
+    inventory=parsed;
+  } catch(e){inventory=[];recoverMissingInventory=true;console.error('Inventory data unreadable',e);}
+  try {
+    const sold=JSON.parse(localStorage.getItem(KEYS.sold)||'[]');
+    soldHistory=Array.isArray(sold)?sold:[];
+  } catch(e){soldHistory=[];}
 
   // Rehydrate photos from IndexedDB
   try {
@@ -1113,8 +1124,8 @@ async function load() {
     inventory.forEach(c => { if (!c.photo && photos[c.id]) c.photo = photos[c.id]; });
   } catch(e) {}
 
-  // CRASH RECOVERY: if inventory is empty but a backup exists, auto-restore silently
-  if (inventory.length === 0) {
+  // Never resurrect sold cards: a valid [] is not a crash.
+  if (recoverMissingInventory) {
     try {
       const backupInv = JSON.parse(localStorage.getItem(KEYS.backup)||'[]');
       const backupSold = JSON.parse(localStorage.getItem(KEYS.backupSold)||'[]');
@@ -1144,8 +1155,8 @@ function save() {
   });
   localStorage.setItem(KEYS.inv, JSON.stringify(slim));
   localStorage.setItem(KEYS.sold, JSON.stringify(soldHistory));
-  // Only write backup when we have real data
-  if (inventory.length > 0) {
+  // A sold-only collection is a valid final state; snapshot that empty inventory too.
+  if (inventory.length > 0 || soldHistory.length > 0) {
     try { localStorage.setItem(KEYS.backup, JSON.stringify(slim)); } catch(e) {}
     try { localStorage.setItem(KEYS.backupSold, JSON.stringify(soldHistory)); } catch(e) {}
   }
@@ -1792,33 +1803,50 @@ function openSellModal(id){
 }
 function confirmSale(){
   try {
-    if(!currentCardId){ toast('No card selected','error'); return; }
-    const card = inventory.find(c=>c.id===currentCardId);
-    if(!card){ toast('Card not found (id='+currentCardId+')','error'); return; }
-    const price = parseFloat(se('sell-price').value);
-    if(isNaN(price)||price<=0){ toast('Enter a valid sale price','error'); return; }
-    const sold = {
-      id:Date.now(), cardId:card.id, player:card.player, sport:card.sport,
-      year:card.year, set:card.set, grade:card.grade, condition:card.condition,
-      cost:card.cost, salePrice:price, pl:price-(card.cost||0),
-      platform:se('sell-platform').value,
-      dateSold:se('sell-date').value,
-      photo:card.photo||null,
-      variation:card.variation||'', printRun:card.printRun||''
+    if(!currentCardId){toast('No card selected','error');return;}
+    const card=inventory.find(c=>c.id===currentCardId);
+    if(!card){toast('Card not found','error');return;}
+    const raw=String(se('sell-price').value||'').trim(),price=Number(raw);
+    const date=se('sell-date').value;
+    if(!raw||!Number.isFinite(price)||price<=0||Math.abs(price*100-Math.round(price*100))>0.00001){
+      toast('Enter a valid sale price in dollars and cents','error');return;
+    }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('Enter a valid sale date','error');return;}
+    const cost=Number(card.cost||0);
+    if(!Number.isFinite(cost)||cost<0){toast('Review invalid purchase cost before selling','error');return;}
+    const gross=Math.round(price*100)/100;
+    const sold={
+      id:Math.max(Date.now(),soldHistory.reduce((max,s)=>Math.max(max,Number(s.id)||0),0)+1),
+      cardId:card.id,player:card.player,sport:card.sport,year:card.year,team:card.team,
+      set:card.set,cardNum:card.cardNum,variation:card.variation||'',printRun:card.printRun||'',
+      grade:card.grade,condition:card.condition,certNumber:card.certNumber||'',
+      cost,gradingCosts:Number(card.gradingCosts||0),basisStatus:card.basisStatus||undefined,
+      salePrice:gross,fees:0,shipping:0,otherExpenses:0,netProceeds:gross,
+      pl:Math.round((gross-cost)*100)/100,
+      platform:se('sell-platform').value,dateSold:date,
+      purchaseDate:card.purchaseDate||'',receiptId:card.receiptId||null,
+      photoRef:card.id
     };
-    soldHistory.unshift(sold);
-    inventory = inventory.filter(c=>c.id!==currentCardId);
-    save();
-    closeModal('modal-sell');
-    closeModal('modal-detail');
-    renderDash(); renderInventory(); renderSold(); renderPlayers(); updateHeader();
-    toast('✅ Sale recorded!','success');
-    showPage('sold');
-  } catch(e) {
-    toast('Error: '+e.message,'error');
-    console.error('confirmSale error:', e);
-  }
+    const oldInventory=inventory,oldSold=soldHistory;
+    const savedKeys=[KEYS.inv,KEYS.sold,KEYS.backup,KEYS.backupSold];
+    const previousStorage=Object.fromEntries(savedKeys.map(k=>[k,localStorage.getItem(k)]));
+    try{
+      soldHistory=[sold,...soldHistory];
+      inventory=inventory.filter(c=>c.id!==currentCardId);
+      save();
+    }catch(e){
+      inventory=oldInventory;soldHistory=oldSold;
+      try{for(const [k,v] of Object.entries(previousStorage)){
+        if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);
+      }}catch(recoverError){console.error('Sale rollback failed',recoverError);}
+      throw e;
+    }
+    closeModal('modal-sell');closeModal('modal-detail');
+    renderDash();renderInventory();renderSold();renderPlayers();updateHeader();
+    toast('✅ Sale recorded!','success');showPage('sold');
+  }catch(e){toast('Sale could not be saved: '+e.message,'error');console.error('confirmSale error:',e);}
 }
+
 
 // ===== RENDER DASHBOARD =====
 function renderDash(){
