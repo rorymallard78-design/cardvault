@@ -176,26 +176,77 @@ function cvrSell(){
 }
 
 function cvrBuy(){
- const r=CVR.items.find(x=>x.id===CVR.activeId);if(!r||r.status!=="pending"||r.kind!=="buy")return;
- CVR.buyRows=[{player:"",year:"",sport:"Other",set:"",variation:"",cost:""}];cvrBuyForm();
+  const receipt=CVR.items.find(x=>x.id===CVR.activeId);
+  if(!receipt||receipt.status!=="pending"||receipt.kind!=="buy")return;
+  se("cvr-modal-title").textContent="Process Purchase";
+  se("cvr-body").innerHTML='<div class="cvr-mini">Loading receipt photos…</div>';
+  cvrPhotos(receipt.id).then(photos=>{
+    if(CVR.activeId!==receipt.id)return;
+    CVR.receiptPhotos=photos;
+    const count=Math.max(1,Math.min(photos.length,12));
+    CVR.buyRows=Array.from({length:count},(_,i)=>cvrBlankRow(i<photos.length?i:-1));
+    cvrBuyForm();
+    if(getKey("ai"))cvrAutoScan();
+  }).catch(err=>{
+    CVR.receiptPhotos=[];
+    CVR.buyRows=[cvrBlankRow(-1)];
+    cvrBuyForm();
+    const box=se("cvr-buy-error");if(box)box.textContent="Receipt photos unavailable: "+err.message;
+  });
 }
 function cvrBuyRead(){
- CVR.buyRows=CVR.buyRows.map((r,i)=>{
-  const x={...r};for(const k of ["player","year","sport","set","variation","cost"]){const el=se("cvr-buy-"+i+"-"+k);if(el)x[k]=el.value;}return x;
- });
+  CVR.buyRows=CVR.buyRows.map((old,i)=>{
+    const row={...old};
+    for(const key of ["player","year","sport","team","set","cardNum","variation","printRun","condition","grade","certNumber","cost"]){
+      const input=se("cvr-buy-"+i+"-"+key);
+      if(input)row[key]=input.value;
+    }
+    return row;
+  });
 }
-function cvrBuyAdd(){cvrBuyRead();CVR.buyRows.push({});cvrBuyForm();}
-function cvrBuyRemove(i){cvrBuyRead();CVR.buyRows.splice(i,1);if(!CVR.buyRows.length)CVR.buyRows.push({});cvrBuyForm();}
+function cvrBuyAdd(){
+  cvrBuyRead();
+  CVR.buyRows.push(cvrBlankRow(-1));
+  cvrBuyForm();
+}
+function cvrBuyRemove(i){
+  cvrBuyRead();
+  CVR.buyRows.splice(i,1);
+  if(!CVR.buyRows.length)CVR.buyRows.push(cvrBlankRow(-1));
+  cvrBuyForm();
+}
 function cvrBuyForm(){
- const r=CVR.items.find(x=>x.id===CVR.activeId);if(!r)return;
- se("cvr-modal-title").textContent="Process Purchase";
- const row=CVR.buyRows.map((v,i)=>'<div class="cvr-section"><div class="cvr-flex"><b>Card '+(i+1)+'</b><button class="btn-sm" onclick="cvrBuyRemove('+i+')">Remove</button></div>'+
- '<div class="form-group"><label class="form-label">Player *</label><input class="form-input" id="cvr-buy-'+i+'-player" value="'+cvxEsc(v.player||"")+'"></div>'+
- '<div class="cvr-flex"><div class="form-group"><label class="form-label">Year</label><input class="form-input" id="cvr-buy-'+i+'-year" value="'+cvxEsc(v.year||"")+'"></div><div class="form-group"><label class="form-label">Sport</label><select class="form-select" id="cvr-buy-'+i+'-sport">'+["Other","Basketball","Baseball","Football","Hockey"].map(s=>'<option '+((v.sport||"Other")===s?"selected":"")+'>'+s+'</option>').join("")+'</select></div></div>'+
- '<div class="form-group"><label class="form-label">Set / Brand</label><input class="form-input" id="cvr-buy-'+i+'-set" value="'+cvxEsc(v.set||"")+'"></div>'+
- '<div class="form-group"><label class="form-label">Variation / Parallel</label><input class="form-input" id="cvr-buy-'+i+'-variation" value="'+cvxEsc(v.variation||"")+'"></div>'+
- '<div class="form-group"><label class="form-label">Allocated Purchase Cost ($) — optional</label><input class="form-input" id="cvr-buy-'+i+'-cost" type="number" min="0" step=".01" value="'+cvxEsc(v.cost??"")+'" placeholder="Split unallocated cost evenly"></div></div>').join("");
- se("cvr-body").innerHTML='<div class="cvr-mini">Receipt '+fmt(r.amount)+' · '+cvrDate(r.at)+'</div><div class="cvr-mini" style="margin:12px 0">Identify cards manually. Blank cost allocations split the remainder equally. No estimated market values are invented.</div>'+row+'<button class="btn btn-secondary" onclick="cvrBuyAdd()">+ Add Card</button><div id="cvr-buy-error" style="color:var(--red);font-size:12px;margin:10px 0"></div><button id="cvr-buy-save" class="btn btn-primary" onclick="cvrBuyPost()">✅ Add to Inventory</button><button class="btn btn-secondary" onclick="cvrView(CVR.activeId)">← Back</button>';
+  const receipt=CVR.items.find(x=>x.id===CVR.activeId);
+  if(!receipt)return;
+  se("cvr-modal-title").textContent="Process Purchase";
+  const photos=CVR.receiptPhotos||[];
+  const photoOptions=photos.map((_,i)=>'<option value="'+i+'">Receipt photo '+(i+1)+'</option>').join("");
+  const field=(i,key,label,placeholder="")=>'<div class="form-group"><label class="form-label">'+label+'</label><input id="cvr-buy-'+i+'-'+key+'" class="form-input" value="'+cvxEsc(CVR.buyRows[i][key]||"")+'" placeholder="'+placeholder+'"></div>';
+  const rows=CVR.buyRows.map((row,i)=>{
+    const src=cvrRowPhoto(row);
+    const sportOptions=["Other","Basketball","Baseball","Football","Hockey"].map(s=>'<option'+(s===(row.sport||"Other")?" selected":"")+'>'+s+'</option>').join("");
+    const condOptions=["Raw","NM-MT","EX-MT","VG-EX","Graded"].map(s=>'<option'+(s===(row.condition||"Raw")?" selected":"")+'>'+s+'</option>').join("");
+    return '<div class="cvr-section"><div class="cvr-flex" style="align-items:center;justify-content:space-between"><b>Card '+(i+1)+'</b><button class="btn-sm" onclick="cvrBuyRemove('+i+')">Remove</button></div>'+
+    '<div style="display:flex;gap:10px;align-items:center;margin:9px 0"><img id="cvr-card-thumb-'+i+'" src="'+(src||"")+'" alt="Assigned card" style="width:78px;height:100px;object-fit:contain;border-radius:7px;background:var(--bg4);border:1px solid var(--border2)"><div style="flex:1;min-width:0">'+
+    '<label class="form-label">Use receipt photo</label><select id="cvr-photo-source-'+i+'" class="form-select" onchange="cvrAssignReceiptPhoto('+i+',this.value)"><option value="-1">No receipt photo</option>'+photoOptions+'</select>'+
+    '<div class="cvr-flex" style="margin-top:7px"><button class="btn-sm" onclick="se(\'cvr-photo-camera-'+i+'\').click()">📸 Camera</button><button class="btn-sm" onclick="se(\'cvr-photo-upload-'+i+'\').click()">🖼 Upload</button></div>'+
+    '<input id="cvr-photo-camera-'+i+'" type="file" accept="image/*" capture="environment" style="display:none" onchange="cvrCardUpload('+i+',event)"><input id="cvr-photo-upload-'+i+'" type="file" accept="image/*" style="display:none" onchange="cvrCardUpload('+i+',event)">'+
+    '<button id="cvr-scan-'+i+'" class="btn-sm" style="margin-top:8px" onclick="cvrScan('+i+')">✨ Scan Card</button></div></div>'+
+    '<div id="cvr-scan-state-'+i+'" class="cvr-mini" style="margin:0 0 9px;color:var(--gold)">'+cvxEsc(row.scanStatus||"Review or scan this card")+'</div>'+
+    field(i,"player","Player *","Player name")+
+    '<div class="cvr-flex">'+field(i,"year","Year","2025")+'<div class="form-group"><label class="form-label">Sport</label><select class="form-select" id="cvr-buy-'+i+'-sport">'+sportOptions+'</select></div></div>'+
+    field(i,"team","Team")+field(i,"set","Set / Brand","Topps Chrome")+
+    '<div class="cvr-flex">'+field(i,"cardNum","Card #")+field(i,"variation","Parallel / Variation")+'</div>'+
+    '<div class="cvr-flex">'+field(i,"printRun","Print Run")+field(i,"grade","Grade (if graded)")+'</div>'+
+    '<div class="cvr-flex">'+field(i,"certNumber","Cert Number")+'<div class="form-group"><label class="form-label">Condition</label><select class="form-select" id="cvr-buy-'+i+'-condition">'+condOptions+'</select></div></div>'+
+    '<div class="form-group"><label class="form-label">Allocated Cost ($) — optional</label><input class="form-input" type="number" min="0" step=".01" id="cvr-buy-'+i+'-cost" value="'+cvxEsc(row.cost??"")+'" placeholder="Split remaining amount evenly"></div></div>';
+  }).join("");
+  se("cvr-body").innerHTML='<div class="cvr-mini">Receipt '+fmt(receipt.amount)+' · '+cvrDate(receipt.at)+'</div>'+
+    '<div class="cvr-mini" style="margin:10px 0">Assign a photo to each card, or take a new one. AI can prefill fields when configured; review parallels and grades before saving. Group photos may require separate close-ups.</div>'+
+    rows+'<button class="btn btn-secondary" onclick="cvrBuyAdd()">+ Another Card</button>'+
+    '<div class="cvr-mini" style="margin:9px 0">Unallocated purchase cost is divided evenly. All cards remain unpriced until you set a market value.</div>'+
+    '<div id="cvr-buy-error" style="color:var(--red);font-size:12px;margin:10px 0"></div><button id="cvr-buy-save" class="btn btn-primary" onclick="cvrBuyPost()">✅ Add Cards to Inventory</button><button class="btn btn-secondary" onclick="cvrView(CVR.activeId)">← Back to Receipt</button>';
+  CVR.buyRows.forEach((r,i)=>{const el=se("cvr-photo-source-"+i);if(el)el.value=String(r.sourceIndex??-1);});
 }
 function cvrCosts(total,inputs){
  let remain=Math.round(total*100),blanks=0;
@@ -214,25 +265,45 @@ function cvrCosts(total,inputs){
   return cents/100;
  });
 }
-function cvrBuyPost(){
- const r=CVR.items.find(x=>x.id===CVR.activeId);if(!r||r.kind!=="buy"||r.status!=="pending")return;
- cvrBuyRead();
- const error=se("cvr-buy-error"),rows=CVR.buyRows.map(x=>({...x,player:(x.player||"").trim()}));
- if(rows.some(x=>!x.player)){error.textContent="Enter a player for every card";return;}
- let costs;
- try{costs=cvrCosts(r.amount,rows.map(x=>x.cost));}catch(e){error.textContent=e.message;return;}
- const old=inventory,oldR={...r},btn=se("cvr-buy-save");
- btn.disabled=true;btn.textContent="Saving…";
- const cards=rows.map((v,i)=>({id:newId(),player:v.player,sport:v.sport||"Other",year:v.year||"",team:"",set:v.set||"",cardNum:"",variation:v.variation||"",printRun:"",condition:"Raw",grade:"",certNumber:"",cost:costs[i],value:0,needsPricing:true,notes:"Card show receipt"+(r.notes?" · "+r.notes:""),photo:null,dateAdded:r.at,purchaseDate:r.at,receiptId:r.id}));
- try{
-  inventory=[...cards,...inventory];save();
-  r.status="processed";r.cardIds=cards.map(c=>c.id);r.processedAt=new Date().toISOString();cvrSaveMeta();
-  closeModal("modal-receipts");renderDash();renderInventory();renderPlayers();showPage("receipts");toast(cards.length+" cards added from receipt","success");
- }catch(e){
-  inventory=old;Object.assign(r,oldR);
-  try{save();cvrSaveMeta();}catch(x){console.error(x)}
-  error.textContent="Purchase failed: "+e.message;btn.disabled=false;btn.textContent="✅ Add to Inventory";
- }
+async function cvrBuyPost(){
+  const receipt=CVR.items.find(x=>x.id===CVR.activeId);
+  if(!receipt||receipt.status!=="pending"||receipt.kind!=="buy")return;
+  cvrBuyRead();
+  const error=se("cvr-buy-error"),rows=CVR.buyRows.map(r=>({...r,player:String(r.player||"").trim()}));
+  if(rows.some(r=>!r.player)){error.textContent="Enter a player name for every card.";return;}
+  let costs;
+  try{costs=cvrCosts(receipt.amount,rows.map(r=>r.cost));}
+  catch(err){error.textContent=err.message;return;}
+  const oldInventory=inventory,oldReceipt={...receipt},btn=se("cvr-buy-save"),created=[];
+  btn.disabled=true;btn.textContent="Saving card photos…";
+  try{
+    const cards=[];
+    for(let i=0;i<rows.length;i++){
+      const r=rows[i],id=newId(),photo=cvrRowPhoto(r);
+      const savedPhoto=photo?await compressImage(photo,800,0.7):null;
+      cards.push({
+        id,player:r.player,sport:r.sport||"Other",year:r.year||"",team:r.team||"",set:r.set||"",cardNum:r.cardNum||"",
+        variation:r.variation||"",printRun:r.printRun||"",condition:r.grade?"Graded":r.condition||"Raw",grade:r.grade||"",
+        certNumber:r.certNumber||"",cost:costs[i],value:0,needsPricing:true,
+        notes:"Card show receipt"+(receipt.notes?" · "+receipt.notes:""),photo:savedPhoto,
+        dateAdded:new Date().toISOString(),purchaseDate:receipt.at,receiptId:receipt.id
+      });
+    }
+    for(const c of cards){
+      if(c.photo){await dbSetPhoto(c.id,c.photo);created.push(c.id);}
+    }
+    inventory=[...cards,...inventory];save();
+    receipt.status="processed";receipt.cardIds=cards.map(c=>c.id);receipt.processedAt=new Date().toISOString();
+    cvrSaveMeta();
+    closeModal("modal-receipts");renderDash();renderInventory();renderPlayers();showPage("receipts");
+    toast("✅ "+cards.length+" card(s) added with individual photos","success");
+  }catch(err){
+    inventory=oldInventory;Object.assign(receipt,oldReceipt);
+    try{save();cvrSaveMeta();}catch(e){console.error("Purchase rollback failed",e);}
+    for(const id of created){try{await dbDeletePhoto(id);}catch(e){console.warn("Photo cleanup failed",e);}}
+    if(error){error.textContent="Purchase not completed: "+err.message;}
+    if(btn&&btn.isConnected){btn.disabled=false;btn.textContent="✅ Add Cards to Inventory";}
+  }
 }
 async function cvrExport(){
  const receiptPhotos={};
@@ -268,3 +339,90 @@ async function cvrRestore(data){
 }
 
 if(!new URLSearchParams(location.search).has("gist"))cvrStart();
+
+function cvrRowPhoto(row){
+  if(row.photoData)return row.photoData;
+  const index=Number(row.sourceIndex);
+  return Number.isInteger(index)&&index>=0?(CVR.receiptPhotos||[])[index]||null:null;
+}
+
+function cvrAssignReceiptPhoto(i,v){
+  cvrBuyRead();
+  const row=CVR.buyRows[i];if(!row)return;
+  const index=Number(v);
+  row.sourceIndex=Number.isInteger(index)?index:-1;
+  row.photoData=null;row.scanStatus="";
+  cvrBuyForm();
+  if(cvrRowPhoto(row)&&getKey("ai"))cvrScan(i);
+}
+
+async function cvrCardUpload(i,event){
+  const file=event.target.files?.[0];event.target.value="";
+  if(!file)return;
+  if(!file.type.startsWith("image/")){toast("Choose a photo","error");return;}
+  if(file.size>20*1024*1024){toast("Photo exceeds 20 MB","error");return;}
+  cvrBuyRead();
+  const row=CVR.buyRows[i];if(!row)return;
+  try{
+    row.photoData=await readFileAsDataURL(file);
+    row.sourceIndex=-1;
+    row.scanStatus="New card photo assigned";
+    cvrBuyForm();
+    if(getKey("ai"))cvrScan(i);
+  }catch(err){toast("Could not load photo: "+err.message,"error");}
+}
+
+async function cvrAutoScan(){
+  const entries=[...CVR.buyRows];
+  for(let i=0;i<entries.length;i++){
+    if(CVR.buyRows[i]===entries[i]&&cvrRowPhoto(entries[i]))await cvrScan(i);
+  }
+}
+
+async function cvrScan(i){
+  const row=CVR.buyRows[i],photo=row?cvrRowPhoto(row):null;
+  if(!photo){toast("Choose a photo before scanning","error");return;}
+  if(!getKey("ai")){
+    cvrScanMessage(i,"AI scanning requires an Anthropic key in Settings. You can enter details manually.");
+    return;
+  }
+  if(row.scanBusy)return;
+  row.scanBusy=true;
+  const btn=se("cvr-scan-"+i);if(btn)btn.disabled=true;
+  cvrScanMessage(i,"Analyzing card photo…");
+  try{
+    const image=await compressImage(photo,800,0.7);
+    const result=await scanCardPhoto(image);
+    if(CVR.buyRows[i]!==row||cvrRowPhoto(row)!==photo)return;
+    for(const key of ["player","year","team","set","cardNum","variation","printRun","grade","certNumber","sport","condition"]){
+      const value=String(result[key]??"").trim();
+      if(!value)continue;
+      const el=se("cvr-buy-"+i+"-"+key);
+      if(!el)continue;
+      if(key==="sport"&&el.value==="Other"){
+        const found=["Other","Basketball","Baseball","Football","Hockey"].find(v=>v.toLowerCase()===value.toLowerCase());
+        if(found)el.value=found;
+      }else if(key==="condition"&&(el.value==="Raw"||!el.value)){
+        const found=["Raw","NM-MT","EX-MT","VG-EX","Graded"].find(v=>v.toLowerCase()===value.toLowerCase());
+        if(found)el.value=found;
+      }else if(!el.value){el.value=value;}
+    }
+    if(result.grade&&se("cvr-buy-"+i+"-condition").value==="Raw")se("cvr-buy-"+i+"-condition").value="Graded";
+    cvrBuyRead();
+    cvrScanMessage(i,result.player?"AI suggestions added — verify card details and parallel.":"Could not identify confidently — enter details manually.");
+  }catch(err){
+    cvrScanMessage(i,"AI scan failed: "+err.message+". Enter details manually or retry.");
+  }finally{
+    row.scanBusy=false;
+    if(btn&&btn.isConnected)btn.disabled=false;
+  }
+}
+
+function cvrScanMessage(i,message){
+  const row=CVR.buyRows[i];if(row)row.scanStatus=message;
+  const el=se("cvr-scan-state-"+i);if(el)el.textContent=message;
+}
+
+function cvrBlankRow(sourceIndex=-1){
+  return {player:"",year:"",sport:"Other",team:"",set:"",cardNum:"",variation:"",printRun:"",condition:"Raw",grade:"",certNumber:"",cost:"",sourceIndex,photoData:null,scanStatus:""};
+}
