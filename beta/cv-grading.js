@@ -8,6 +8,7 @@ function cvgStart(){
   try{const v=JSON.parse(localStorage.getItem(CVG.key)||'[]');CVG.items=Array.isArray(v)?v:[];}catch(e){CVG.items=[];console.error('Could not load grading records',e);}
   const css=document.createElement('style');
   css.textContent='.cvg-stat{background:var(--bg2);border:1px solid var(--border2);padding:12px;border-radius:11px}.cvg-stat strong{font-family:"DM Mono",monospace;font-size:17px;color:var(--gold);display:block}.cvg-stat span{font-size:11px;color:var(--text2)}.cvg-row{display:flex;gap:10px;align-items:flex-start;padding:11px;border:1px solid var(--border2);border-radius:10px;margin:9px 0;background:var(--bg2)}.cvg-mini{font-size:11px;color:var(--text2);line-height:1.55}.cvg-tabs{display:flex;gap:7px;margin:10px 0}.cvg-tabs button{flex:1;min-width:0}.cvg-box{border:1px solid var(--border2);border-radius:10px;padding:11px;margin:10px 0;background:var(--bg3)}.cvg-label{font-size:12px;font-weight:600;color:var(--text2);margin:6px 0}.cvg-thumb{width:44px;height:59px;object-fit:contain;background:var(--bg4);border-radius:5px;flex-shrink:0}.cvg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.cvg-status{display:inline-block;padding:3px 6px;background:var(--gold-dim);color:var(--gold);border-radius:5px;font-size:10px;text-transform:uppercase;font-weight:700}.cvg-error{color:var(--red);font-size:12px;margin:8px 0;min-height:12px}';
+  css.textContent+=".nav{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x;justify-content:flex-start;}.nav::-webkit-scrollbar{display:none}.nav-btn{flex:0 0 82px;min-width:82px;max-width:82px;white-space:nowrap;}.cvg-stat.cvg-action{width:100%;font-family:inherit;text-align:left;color:var(--text);cursor:pointer;display:block;}.cvg-stat.cvg-action:active{border-color:var(--gold);}.cvg-grade-track{height:7px;border-radius:6px;background:var(--bg4);margin-top:8px;overflow:hidden}.cvg-grade-card{font-family:inherit;width:100%;background:transparent;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;border:0;border-top:1px solid var(--border2);padding:12px 0;cursor:pointer;}";
   document.head.appendChild(css);
   const page=document.createElement('div');page.className='page';page.id='page-grading';
   page.innerHTML='<div class="sec-header"><div><div class="sec-title">Grading</div><div class="sec-sub">Submissions and grading costs</div></div><button class="btn-sm gold" onclick="cvgNew()">+ New</button></div><div id="cvg-stat-grid" class="cvg-grid"></div><div class="cvg-tabs" id="cvg-tabs"></div><div id="cvg-list"></div>';
@@ -17,7 +18,7 @@ function cvgStart(){
   const modal=document.createElement('div');modal.className='overlay';modal.id='cvg-modal';modal.style.zIndex='420';
   modal.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title" id="cvg-modal-title">Grading</div><button class="sheet-close" onclick="closeModal(\'cvg-modal\')">✕</button></div><div class="sheet-body" id="cvg-body"></div></div>';
   document.body.append(modal);
-  const old=showPage;showPage=function(name){old(name);if(name==='grading')cvgRender();if(name==='insights')cvgRenderAnalytics();};
+  const old=showPage;showPage=function(name){old(name);if(name==='grading')cvgRender();if(name==='insights')cvgRenderAnalytics();const n=se('nav-'+name),bar=document.querySelector('nav.nav');if(n&&bar){const left=n.offsetLeft,right=left+n.offsetWidth;if(left<bar.scrollLeft||right>bar.scrollLeft+bar.clientWidth){bar.scrollTo({left:Math.max(0,left-(bar.clientWidth-n.offsetWidth)/2),behavior:'smooth'});}}};
   const quick=se('page-dash').querySelector('.dash-grid');
   if(quick){const d=document.createElement('div');d.id='cvg-dash';quick.before(d);}
   const insight=se('page-insights');if(insight){const panel=document.createElement('div');panel.id='cvg-analytics';insight.querySelector('.sec-header')?.after(panel);}
@@ -50,10 +51,9 @@ function cvgRender(){
  const active=CVG.items.filter(x=>!['returned','cancelled'].includes(x.status));
  const completed=CVG.items.filter(x=>['returned','cancelled'].includes(x.status));
  const exp=CVG.items.reduce((sum,x)=>sum+(x.expensesApplied||0),0);
- const graded=CVG.items.flatMap(x=>x.cards.filter(c=>c.resultApplied&&c.grade));
- const tens=graded.filter(c=>/^(10|10\.0)$/.test(String(c.grade))).length;
- const stats=[['Active',active.length],['Cards in Grading',active.reduce((n,x)=>n+x.cards.length,0)],['Recorded Costs',fmt(exp)],['Returned Grades',graded.length+(graded.length?' · '+Math.round(tens/graded.length*100)+'% 10s':'')]];
- se('cvg-stat-grid').innerHTML=stats.map(([label,val])=>'<div class="cvg-stat"><strong>'+val+'</strong><span>'+label+'</span></div>').join('');
+ const report=cvgGradeDistribution();
+ const stats=[['Active',active.length],['Cards in Grading',active.reduce((n,x)=>n+x.cards.length,0)],['Recorded Costs',fmt(exp)],['Returned Grades',report.total+(report.total?' · '+Math.round(report.tens/report.total*100)+'% 10s':'')]];
+ se('cvg-stat-grid').innerHTML=stats.map(([label,val],i)=>i===3?'<button type="button" class="cvg-stat cvg-action" onclick="cvgGrades()" aria-label="View returned grade distribution"><strong>'+val+' <span style="font-size:13px">›</span></strong><span>'+label+' · Tap to view</span></button>':'<div class="cvg-stat"><strong>'+val+'</strong><span>'+label+'</span></div>').join('');
  se('cvg-tabs').innerHTML='<button class="btn btn-secondary" style="'+(CVG.filter==='active'?'border-color:var(--gold);color:var(--gold)':'')+'" onclick="CVG.filter=\'active\';cvgRender()">Active ('+active.length+')</button><button class="btn btn-secondary" style="'+(CVG.filter==='history'?'border-color:var(--gold);color:var(--gold)':'')+'" onclick="CVG.filter=\'history\';cvgRender()">History ('+completed.length+')</button>';
  const data=(CVG.filter==='history'?completed:active).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
  se('cvg-list').innerHTML=data.map(x=>{
@@ -230,4 +230,38 @@ function cvgRenderAnalytics(){
  groupTable('Realized Profit by Selling Platform',groups('platform'))+
  groupTable('Realized Profit by Sport',groups('sport'))+
  '<div class="cvg-box"><b>Recent Monthly Realized Profit</b>'+(months.length?months.map(([m,p])=>'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><span class="cvg-mini">'+cvgEsc(m)+'</span><b style="font-size:12px;color:'+(p>=0?'var(--green)':'var(--red)')+'">'+fmtPL(p)+'</b></div>').join(''):'<div class="cvg-mini">No dated sales</div>')+'</div>';
+}
+
+function cvgGradeDistribution(){
+ const rows=CVG.items.flatMap(sub=>(sub.cards||[]).filter(r=>r.resultApplied&&String(r.grade||'').trim()).map(r=>({
+   company:sub.company||'Other',grade:String(r.grade).trim(),cardId:r.cardId,submissionId:sub.id,cert:r.cert||'',order:sub.order||'',date:sub.returnedDate||sub.date||''
+ })));
+ const groups=new Map();
+ for(const row of rows){
+   const gradeLabel=row.grade.toUpperCase().startsWith(row.company.toUpperCase()+' ')?row.grade:row.company+' '+row.grade;
+   const key=row.company.toLowerCase()+'|'+row.grade.toLowerCase();
+   if(!groups.has(key))groups.set(key,{label:gradeLabel,count:0,items:[],grade:row.grade,company:row.company});
+   const group=groups.get(key);group.count++;group.items.push(row);
+ }
+ const isTen=grade=>/^(?:(?:PSA|BGS|SGC|CGC)\s+)?10(?:\.0)?$/i.test(String(grade).trim());
+ const graded10s=rows.filter(r=>isTen(r.grade)).length;
+ return {total:rows.length,tens:graded10s,groups:[...groups.values()].sort((a,b)=>b.count-a.count||b.grade.localeCompare(a.grade,undefined,{numeric:true})||a.company.localeCompare(b.company))};
+}
+function cvgGrades(){
+ const report=cvgGradeDistribution();
+ se('cvg-modal-title').textContent='Returned Grade Distribution';
+ const pct=n=>report.total?Math.round(n/report.total*100):0;
+ const sections=report.groups.map(g=>{
+   const items=g.items.map(item=>{
+      const card=cvgCard(item.cardId)||cvgSold(item.cardId);
+      const label=card?[card.player,card.year,card.set,card.variation].filter(Boolean).join(' · '):'Card no longer in inventory';
+      return '<button class="cvg-grade-card" type="button" onclick="cvgView('+Number(item.submissionId)+')"><span><b>'+cvgEsc(label)+'</b><span class="cvg-mini" style="display:block">'+cvgEsc(item.cert?'Cert '+item.cert:'No certification recorded')+' · '+cvgEsc(cvgDate(item.date))+'</span></span><span style="font-size:18px;color:var(--gold)">›</span></button>';
+   }).join('');
+   return '<details open class="cvg-box" style="margin-top:12px"><summary style="cursor:pointer"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>'+cvgEsc(g.label)+'</b><span class="cvg-mini">'+g.count+' card'+(g.count===1?'':'s')+' · '+pct(g.count)+'%</span></div><div class="cvg-grade-track"><div style="height:100%;width:'+pct(g.count)+'%;background:var(--gold);border-radius:6px"></div></div></summary><div style="padding-top:9px">'+items+'</div></details>';
+ }).join('');
+ se('cvg-body').innerHTML='<div class="cvg-mini">Grades entered through your CardVault grading submissions, across all grading companies.</div>'+
+ '<div class="cvg-grid" style="margin-top:12px"><div class="cvg-stat"><strong>'+report.total+'</strong><span>Grades recorded</span></div><div class="cvg-stat"><strong>'+report.tens+(report.total?' · '+pct(report.tens)+'%':'')+'</strong><span>Cards graded 10</span></div></div>'+
+ (sections||'<div class="cvg-box">No returned grades recorded yet. Open a submission and enter its grade to populate this report.</div>')+
+ '<div class="cvg-mini" style="margin-top:13px">Tap a card to review its original grading submission. Different grading companies have different grading standards; the 10 percentage is descriptive, not a standardized gem rate.</div>';
+ openModal('cvg-modal');
 }
