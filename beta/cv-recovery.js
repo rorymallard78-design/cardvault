@@ -5,7 +5,8 @@ const CV_CARD_DB='cv_beta_photos_db';
 const CV_RECEIPT_DB='cv_beta_receipt_photos_db';
 const CV_RECOVERY_KEYS=[
  'cv_beta_inventory','cv_beta_sold','cv_beta_backup','cv_beta_backup_sold',
- 'cv_beta_receipts','cv_beta_grading','cv_beta_photos','cv_beta_chase_v1'
+ 'cv_beta_receipts','cv_beta_grading','cv_beta_photos','cv_beta_chase_v1',
+ 'cv_beta_pulse_custom_v1','cv_beta_pulse_watch_v1'
 ];
 function cvRecoveryOpen(dbName,storeName,primary=false){
  return new Promise((resolve,reject)=>{
