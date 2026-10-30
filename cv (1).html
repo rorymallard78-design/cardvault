@@ -955,6 +955,9 @@ function batchConfirm(mode){
   <button class="btn btn-secondary" onclick="renderBatchReview()">← Back to Review</button>`;
 }
 function batchCommit(mode){
+  if(batchItems.some(it=>{const c=String(it.cost??'').trim(),v=String(it.value??'').trim();return (c!==''&&(!Number.isFinite(Number(c))||Number(c)<0))||(v!==''&&(!Number.isFinite(Number(v))||Number(v)<0));})){
+    toast('Review invalid or negative batch purchase costs and market values.','error');return;
+  }
   const cards=batchItems.map(it=>{
     const cost=parseFloat(it.cost)||0, val=mode==='later'?0:(parseFloat(it.value)||0);
     return {id:newId(),player:it.player.trim(),sport:it.sport||'Other',year:it.year.trim(),team:it.team.trim(),set:it.set.trim(),cardNum:it.cardNum.trim(),variation:it.variation.trim(),printRun:it.printRun.trim(),condition:it.grade?'Graded':(it.condition||'Raw'),grade:it.grade.trim(),certNumber:it.certNumber.trim(),cost,value:val,needsPricing:!(val>0),notes:it.notes||'',photo:it.photo||null,dateAdded:new Date().toISOString()};
@@ -1503,8 +1506,14 @@ function saveEdit(){
   card.cardNum=se('e-cardnum').value.trim();
   card.variation=se('e-variation').value.trim();
   card.printRun=se('e-printrun').value.trim();
-  card.cost=parseFloat(se('e-cost').value)||0;
-  { const _ev=parseFloat(se('e-value').value)||0; card.value=(_ev>0||!card.needsPricing)?(_ev||card.cost):0; if(_ev>0) card.needsPricing=false; }
+  const costRaw=se('e-cost').value.trim(),valueRaw=se('e-value').value.trim();
+  const parsedCost=costRaw===''?0:Number(costRaw),parsedValue=valueRaw===''?0:Number(valueRaw);
+  if(!Number.isFinite(parsedCost)||parsedCost<0||!Number.isFinite(parsedValue)||parsedValue<0){
+    toast('Cost and estimated value must be valid nonnegative amounts.','error');switchEditTab('price');return;
+  }
+  card.cost=Math.round(parsedCost*100)/100;
+  card.value=Math.round(parsedValue*100)/100;
+  card.needsPricing=!(parsedValue>0);
   card.notes=se('e-notes').value.trim();
   card.condition=se('e-condition').value;
   card.grade=se('e-grade').value;
@@ -1711,7 +1720,9 @@ function saveNewCard(){
   if(!player){ toast('Player name required — check Card Info tab','error'); switchAddTab('info'); return; }
   if(!se('n-sport').value) se('n-sport').value='Other';
   const sport = se('n-sport').value;
-  const cost = parseFloat(se('n-cost').value)||0;
+  const costRaw=se('n-cost').value.trim(),valueRaw=se('n-value').value.trim();
+  const cost=costRaw===''?0:Number(costRaw),newValue=valueRaw===''?0:Number(valueRaw);
+  if(!Number.isFinite(cost)||cost<0||!Number.isFinite(newValue)||newValue<0){toast('Enter valid nonnegative cost and market value.','error');switchAddTab('price');return;}
   const photoVal = scanPhoto || (se('n-photo-data') ? se('n-photo-data').value || null : null);
   const card = {
     id: newId(),
@@ -1726,8 +1737,8 @@ function saveNewCard(){
     grade: se('n-grade').value,
     certNumber: se('n-cert').value.trim(),
     cost,
-    value: parseFloat(se('n-value').value)||0,
-    needsPricing: !(parseFloat(se('n-value').value)>0),
+    value: Math.round(newValue*100)/100,
+    needsPricing: !(newValue>0),
     notes: se('n-notes').value.trim(),
     photo: photoVal,
     dateAdded: new Date().toISOString()
