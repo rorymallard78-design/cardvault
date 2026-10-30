@@ -465,6 +465,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div style="display:flex;gap:8px;margin:10px 0 14px"><select class="form-input" id="chase-filter" onchange="chaseDisplay()" style="flex:1"><option>All</option><option>Baseball</option><option>Basketball</option><option>Football</option><option>Hockey</option><option>Soccer</option><option>Other</option><option>Non-Sports</option><option value="Sports">Sports (older entries)</option></select><button class="btn-sm" onclick="chaseExport()">Export CSV</button></div>
   <div id="chase-list"></div>
 </div>
+<div class="page" id="page-pulse">
+  <div class="sec-header"><div><div class="sec-title">📅 Hobby Pulse</div><div class="sec-sub">Release Radar · Topps &amp; Panini</div></div></div>
+  <div id="pulse-root"></div>
+</div>
 <div class="page" id="page-settings">
   <div class="sec-header">
     <div class="sec-title">Settings</div>
@@ -540,6 +544,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <button class="nav-btn" id="nav-sold" onclick="showPage('sold')"><span class="nav-icon">✅</span>Sold</button>
   <button class="nav-btn" id="nav-insights" onclick="showPage('insights')"><span class="nav-icon">📈</span>Insights</button>
   <button class="nav-btn" id="nav-chase" onclick="showPage('chase')"><span class="nav-icon">🎯</span>Chase</button>
+  <button class="nav-btn" id="nav-pulse" onclick="showPage('pulse')"><span class="nav-icon">📅</span>Pulse</button>
 </nav>
 
 <button class="fab" id="fab" onclick="openModal('modal-addmenu')">+</button>
@@ -2554,7 +2559,7 @@ function clearAllData(){
     // Normal app mode — seed history stack so back button always has somewhere to go
     // Restore last active page from hash (e.g. #inventory, #sold, #players, #insights)
     const _hash = window.location.hash.replace('#','');
-    const _validPages = ['dash','inventory','players','sold','insights','chase','settings','market'];
+    const _validPages = ['dash','inventory','players','sold','insights','chase','pulse','settings','market'];
     const _startPage = _validPages.includes(_hash) ? _hash : 'dash';
     try { history.replaceState({cv:'stay'}, '', location.href.split('#')[0]+'#cv'); } catch(e) {}
     _pushStay(); _pushStay(); _pushStay();
@@ -2572,7 +2577,7 @@ function clearAllData(){
   if(window.ResizeObserver&&cvNav)new ResizeObserver(syncFabPosition).observe(cvNav);
   window.addEventListener('resize',syncFabPosition);
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=chase-backup-v4","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-v1"];
+  const modules=["cv-features.js?v=chase-backup-v4","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-v2","cv-pulse.js?v=release-radar-v1"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
