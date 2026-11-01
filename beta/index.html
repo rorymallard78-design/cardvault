@@ -460,7 +460,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <div class="page" id="page-chase">
-  <div class="sec-header"><div><div class="sec-title">🎯 Chase List</div><div class="sec-sub" id="chase-count">0 chase cards</div></div><button class="btn-sm gold" onclick="chaseEdit('')">+ Add Chase</button></div>
+  <div class="sec-header"><div><div class="sec-title">🎯 Chase List</div><div class="sec-sub" id="chase-count">0 chase cards</div></div><div style="display:flex;gap:6px"><button class="btn-sm" onclick="voiceOpen('chase')">🎤 Voice</button><button class="btn-sm gold" onclick="chaseEdit('')">+ Add Chase</button></div></div>
   <div class="search-row"><input class="search-input" id="chase-search" placeholder="Search chase cards..." oninput="chaseDisplay()"></div>
   <div style="display:flex;gap:8px;margin:10px 0 14px"><select class="form-input" id="chase-filter" onchange="chaseDisplay()" style="flex:1"><option>All</option><option>Baseball</option><option>Basketball</option><option>Football</option><option>Hockey</option><option>Soccer</option><option>Other</option><option>Non-Sports</option><option value="Sports">Sports (older entries)</option></select><button class="btn-sm" onclick="chaseExport()">Export CSV</button></div>
   <div id="chase-list"></div>
@@ -848,6 +848,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <button class="btn btn-primary" style="padding:18px" onclick="closeModal('modal-addmenu');openAddModal()">📷 Add One Card</button>
       <button class="btn btn-primary" style="padding:18px" onclick="se('batch-input').click()">🗂️ Batch Add Cards</button>
       <button class="btn btn-secondary" style="padding:18px" onclick="closeModal('modal-addmenu');openAddModal();showAddStep('form')">✏️ Enter Manually</button>
+      <button class="btn btn-secondary" style="padding:18px" onclick="closeModal('modal-addmenu');voiceOpen('inventory')">🎤 Add Card by Voice</button>
     </div>
   </div>
 </div>
@@ -2578,7 +2579,7 @@ function clearAllData(){
   if(window.ResizeObserver&&cvNav)new ResizeObserver(syncFabPosition).observe(cvNav);
   window.addEventListener('resize',syncFabPosition);
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=pulse-backup-v5","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-photos-v3","cv-pulse.js?v=news-and-release-v2","cv-pulse-tiles.js?v=visual-1"];
+  const modules=["cv-features.js?v=pulse-backup-v5","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-photos-v3","cv-pulse.js?v=news-and-release-v2","cv-pulse-tiles.js?v=visual-1","cv-voice.js?v=voice-beta-v1"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
