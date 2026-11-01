@@ -67,7 +67,7 @@ function voiceOpen(mode){
  document.getElementById('voice-title').textContent=CVVOICE.mode==='chase'?'🎤 Chase Card by Voice':'🎤 Inventory Card by Voice';
  document.getElementById('voice-transcript').value='';
  document.getElementById('voice-preview').innerHTML='';
- document.getElementById('voice-status').textContent=(window.SpeechRecognition||window.webkitSpeechRecognition)?'Tap Start Talking, or use keyboard dictation.':'Browser microphone unavailable. Use your keyboard microphone or type below.';
+ document.getElementById('voice-status').textContent='Use the microphone on your phone keyboard and speak normally. CardVault reads the text when you finish.';
  document.getElementById('voice-apply').textContent=CVVOICE.mode==='chase'?'Fill Chase Form':'Fill Inventory Form';
  openModal('voice-modal');
 }
@@ -166,6 +166,15 @@ function voiceStartSession(){
   document.getElementById('voice-status').textContent='Could not restart the microphone: '+e.message+'. Tap Start Talking again or use keyboard dictation.';
  }
 }
+function voiceUseKeyboard(){
+ voiceStop();
+ const area=document.getElementById('voice-transcript');
+ if(!area)return;
+ area.focus();
+ try{area.setSelectionRange(area.value.length,area.value.length)}catch(e){}
+ const status=document.getElementById('voice-status');
+ if(status)status.textContent='Tap the microphone on your Samsung/Google keyboard, then describe the whole card at your normal speaking pace.';
+}
 function voiceListen(){
  if(CVVOICE.active){
   const rec=CVVOICE.recognizer;
@@ -213,13 +222,15 @@ function voiceApply(){
 function voiceInit(){
  const modal=document.createElement('div');modal.id='voice-modal';modal.className='overlay';modal.style.zIndex='410';
  modal.innerHTML='<div class="sheet"><div class="sheet-handle"></div><div class="sheet-header"><div class="sheet-title" id="voice-title">🎤 Voice Entry</div><button class="sheet-close" type="button" onclick="voiceClose()">✕</button></div><div class="sheet-body">'+
- '<p style="font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 10px">Example: “2015 Panini Prizm Nikola Jokic Silver PSA 9, paid 300, worth 450.” For precise entry, say “player”, “brand”, “grade” and “paid”.</p>'+
- '<button class="btn btn-primary" type="button" id="voice-mic" onclick="voiceListen()">🎤 Start Talking</button>'+
- '<div id="voice-status" role="status" style="font-size:12px;color:var(--text2);margin:8px 0 10px">Tap to speak.</div>'+
- '<label class="form-label" for="voice-transcript">Transcript — edit if needed</label><textarea id="voice-transcript" class="form-input" rows="4" style="min-height:100px;width:100%" placeholder="Player Nikola Jokic, brand Panini Prizm, grade PSA 9, paid 300, worth 450" oninput="voicePreview();voiceTyped()"></textarea>'+
- '<div id="voice-preview"></div>'+
+ '<p style="font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 10px">Dictate the entire card description using your phone keyboard, at a normal speaking pace. For example: “2015 Panini Prizm Nikola Jokic Silver PSA 9, paid 300 dollars, worth 450 dollars.”</p>'+
+ '<button class="btn btn-primary" type="button" id="voice-keyboard" onclick="voiceUseKeyboard()">🎙 Dictate with Phone Keyboard</button>'+
+ '<div id="voice-status" role="status" style="font-size:12px;color:var(--text2);margin:8px 0 10px">Tap above, then the microphone on your keyboard.</div>'+
+ '<label class="form-label" for="voice-transcript">What you said — editable</label>'+
+ '<textarea id="voice-transcript" class="form-input" rows="4" style="min-height:120px;width:100%;font-size:16px" autocomplete="off" autocapitalize="sentences" placeholder="Describe the player, brand, grade, price, etc." oninput="voicePreview();voiceTyped()"></textarea>'+
+ '<div id="voice-preview" style="margin:10px 0"></div>'+
  '<button class="btn btn-primary" id="voice-apply" type="button" onclick="voiceApply()">Fill Inventory Form</button>'+
- '<p style="font-size:11px;color:var(--muted);line-height:1.5;margin:0 0 12px">No paid AI API. Your browser may process speech using an online service. CardVault does not retain recordings or the transcript; it saves only the fields you approve.</p></div></div>';
+ '<details style="margin:8px 0 12px"><summary style="font-size:12px;color:var(--text2);cursor:pointer">Alternative: experimental browser microphone</summary><p style="font-size:11px;line-height:1.5;color:var(--muted);margin:8px 0">Some Android browsers cut off speech after short pauses. Use the phone keyboard option above if this happens.</p><button class="btn btn-secondary" type="button" id="voice-mic" onclick="voiceListen()">🎤 Browser Mic (Experimental)</button></details>'+
+ '<p style="font-size:11px;color:var(--muted);line-height:1.5;margin:0 0 12px">No paid AI API. Your phone or browser may use online speech processing. CardVault does not retain audio recordings or transcripts; only saved card fields are stored.</p></div></div>';
  document.body.appendChild(modal);
 }
 voiceInit();
