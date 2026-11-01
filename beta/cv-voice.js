@@ -1,5 +1,5 @@
 'use strict';
-let CVVOICE={mode:'inventory',recognizer:null,recording:false,base:''};
+let CVVOICE={mode:'inventory',recognizer:null,recording:false,base:'',active:false,restartTimer:null,session:0,quietEnds:0};
 const VOICE_SETS=['Topps Chrome Sapphire','Bowman Chrome Sapphire','Topps Chrome','Topps Update','Topps Heritage','Bowman Chrome','Donruss Optic','National Treasures','Panini Prizm','Panini Select','Panini Mosaic','Panini Certified','Panini Contenders','Topps Finest','Topps Flagship','Upper Deck','Skybox','Fleer Ultra','Immaculate','Flawless','Prizm','Mosaic','Optic','Select','Donruss','Bowman','Topps','Fleer','Pokemon','Pokémon','One Piece','Magic The Gathering'];
 const VOICE_PARALLELS=['Blue X-Fractor','Red White and Blue','Red White & Blue','Blue Refractor','Red Refractor','Gold Refractor','Silver Prizm','Gold Vinyl','Pink Glitter','Blue Wave','Gold Wave','Sonic Boom','Crystallized','Astrovision','Kaboom','Downtown','Sapphire','Silver','Gold','Holofoil','Holo','Refractor','X-Fractor','Base','Autograph','Pink','Purple','Blue','Red','Green','Orange'];
 const VOICE_SPORTS=[['Non-Sports',/\b(non.sports?|pokemon|pokémon|star wars|marvel|one piece|magic the gathering)\b/i],['Basketball',/\bbasketball\b/i],['Baseball',/\bbaseball\b/i],['Football',/\bfootball\b/i],['Hockey',/\bhockey\b/i],['Soccer',/\b(soccer|futbol)\b/i]];
@@ -45,38 +45,143 @@ function voiceParse(input){
  }
  return d;
 }
+// Merge overlapping phrases only at session boundaries; interim hypotheses must NEVER be appended.
+function voiceJoin(previous,addition){
+ const a=String(previous||'').trim(),b=String(addition||'').trim();
+ if(!a)return b;if(!b)return a;
+ const left=a.split(/\s+/),right=b.split(/\s+/);
+ const norm=w=>String(w).toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,'');
+ const max=Math.min(12,left.length,right.length);
+ let overlap=0;
+ for(let n=max;n>0;n--){
+  let same=true;
+  for(let k=0;k<n;k++)if(norm(left[left.length-n+k])!==norm(right[k])){same=false;break;}
+  if(same){overlap=n;break;}
+ }
+ return (a+' '+right.slice(overlap).join(' ')).trim();
+}
 function voiceOpen(mode){
+ voiceStop();
  CVVOICE.mode=mode==='chase'?'chase':'inventory';
+ CVVOICE.base='';
  document.getElementById('voice-title').textContent=CVVOICE.mode==='chase'?'🎤 Chase Card by Voice':'🎤 Inventory Card by Voice';
  document.getElementById('voice-transcript').value='';
  document.getElementById('voice-preview').innerHTML='';
- document.getElementById('voice-status').textContent=(window.SpeechRecognition||window.webkitSpeechRecognition)?'Tap Start Talking, or type below.':'Browser microphone unavailable. Use the keyboard microphone or type below.';
+ document.getElementById('voice-status').textContent=(window.SpeechRecognition||window.webkitSpeechRecognition)?'Tap Start Talking, or use keyboard dictation.':'Browser microphone unavailable. Use your keyboard microphone or type below.';
  document.getElementById('voice-apply').textContent=CVVOICE.mode==='chase'?'Fill Chase Form':'Fill Inventory Form';
  openModal('voice-modal');
 }
-function voiceClose(){
- if(CVVOICE.recording&&CVVOICE.recognizer)try{CVVOICE.recognizer.abort()}catch(e){}
- CVVOICE.recording=false;CVVOICE.recognizer=null;voiceListening(false);closeModal('voice-modal');
-}
 function voiceListening(active){
- const b=document.getElementById('voice-mic');if(b)b.textContent=active?'⏹ Stop Listening':'🎤 Start Talking';
+ const b=document.getElementById('voice-mic');
+ if(b){b.textContent=active?'⏹ Stop Listening':'🎤 Start Talking';b.style.background=active?'var(--red-dim)':'';}
+}
+function voiceStop(){
+ CVVOICE.active=false;CVVOICE.recording=false;CVVOICE.session++;
+ if(CVVOICE.restartTimer!==null){clearTimeout(CVVOICE.restartTimer);CVVOICE.restartTimer=null;}
+ const rec=CVVOICE.recognizer;CVVOICE.recognizer=null;
+ if(rec)try{rec.abort()}catch(e){}
+ voiceListening(false);
+}
+function voiceClose(){voiceStop();closeModal('voice-modal');}
+function voiceTyped(){
+ // Preserve manual corrections instead of overwriting them with the next interim result.
+ if(CVVOICE.active)voiceStop();
+ CVVOICE.base=document.getElementById('voice-transcript')?.value||'';
+ const status=document.getElementById('voice-status');
+ if(status)status.textContent='Transcript edited. Tap Start Talking to add more.';
+}
+function voiceWrite(text){
+ const area=document.getElementById('voice-transcript');
+ if(!area)return;
+ area.value=text;voicePreview();
+}
+function voiceStartSession(){
+ if(!CVVOICE.active)return;
+ const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Speech){voiceStop();return;}
+ const token=++CVVOICE.session;
+ const rec=new Speech();
+ CVVOICE.recognizer=rec;
+ rec.lang='en-US';rec.interimResults=true;rec.continuous=true;rec.maxAlternatives=1;
+ // Each recognition session starts from an immutable confirmed transcript.
+ const base=CVVOICE.base;
+ let lastPhrase='',heardWords=false,finalPhrase='';
+ rec.onstart=()=>{
+  if(token!==CVVOICE.session)return;
+  CVVOICE.recording=true;voiceListening(true);
+  document.getElementById('voice-status').textContent='Listening… keep speaking, even through pauses.';
+ };
+ rec.onresult=e=>{
+  if(token!==CVVOICE.session)return;
+  let final='',interim='';
+  // On Android, result entries can repeat/change until final. Rebuild rather than append.
+  for(let i=0;i<e.results.length;i++){
+   const result=e.results[i];
+   const phrase=String(result?.[0]?.transcript||'').trim();
+   if(!phrase)continue;
+   if(result.isFinal)final=voiceJoin(final,phrase);
+   else interim=voiceJoin(interim,phrase);
+  }
+  finalPhrase=final;
+  lastPhrase=voiceJoin(final,interim);
+  if(lastPhrase)heardWords=true;
+  voiceWrite(voiceJoin(base,lastPhrase));
+ };
+ rec.onerror=e=>{
+  if(token!==CVVOICE.session)return;
+  const code=e.error||'unavailable';
+  if(['not-allowed','service-not-allowed','audio-capture','network'].includes(code)){
+   voiceStop();
+   document.getElementById('voice-status').textContent='Microphone unavailable ('+code+'). Try keyboard dictation or check browser permissions.';
+  }else if(code==='no-speech'){
+   document.getElementById('voice-status').textContent='No speech detected. Listening will resume automatically…';
+  }else if(code!=='aborted'){
+   document.getElementById('voice-status').textContent='Recognition interrupted ('+code+'). Attempting to resume…';
+  }
+ };
+ rec.onend=()=>{
+  if(token!==CVVOICE.session)return;
+  CVVOICE.recording=false;CVVOICE.recognizer=null;
+  // Commit recognized final speech once. Use last interim only when the browser never finalized it.
+  const completed=finalPhrase||lastPhrase;
+  if(completed){CVVOICE.base=voiceJoin(base,completed);voiceWrite(CVVOICE.base);}
+  if(!CVVOICE.active){voiceListening(false);return;}
+  CVVOICE.quietEnds=completed?0:CVVOICE.quietEnds+1;
+  // Avoid an endless restart loop on browsers that repeatedly fail without audio.
+  if(CVVOICE.quietEnds>=5){
+   voiceStop();
+   document.getElementById('voice-status').textContent='Paused after several attempts without speech. Tap Start Talking to resume.';
+   return;
+  }
+  document.getElementById('voice-status').textContent='Continuing to listen…';
+  CVVOICE.restartTimer=setTimeout(()=>{
+   CVVOICE.restartTimer=null;
+   if(CVVOICE.active)voiceStartSession();
+  },350);
+ };
+ try{rec.start();}
+ catch(e){
+  if(token!==CVVOICE.session)return;
+  voiceStop();
+  document.getElementById('voice-status').textContent='Could not restart the microphone: '+e.message+'. Tap Start Talking again or use keyboard dictation.';
+ }
 }
 function voiceListen(){
- if(CVVOICE.recording){try{CVVOICE.recognizer.stop()}catch(e){}return;}
- const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!Speech){document.getElementById('voice-status').textContent='Please use your keyboard microphone or type.';return;}
- try{
-  const rec=new Speech();rec.lang='en-US';rec.interimResults=true;rec.continuous=true;CVVOICE.recognizer=rec;
-  CVVOICE.base=document.getElementById('voice-transcript').value.trim();
-  rec.onstart=()=>{CVVOICE.recording=true;voiceListening(true);document.getElementById('voice-status').textContent='Listening…'};
-  rec.onresult=e=>{
-   const parts=[];for(let i=0;i<e.results.length;i++)if(e.results[i][0]?.transcript)parts.push(e.results[i][0].transcript);
-   document.getElementById('voice-transcript').value=[CVVOICE.base,parts.join(' ')].filter(Boolean).join(' ').trim();voicePreview();
-  };
-  rec.onerror=e=>document.getElementById('voice-status').textContent='Speech recognition: '+(e.error||'unavailable')+'. Keyboard dictation is also available.';
-  rec.onend=()=>{CVVOICE.recording=false;CVVOICE.recognizer=null;voiceListening(false);const el=document.getElementById('voice-status');if(el?.textContent==='Listening…')el.textContent='Stopped — review the details or speak again.'};
-  rec.start();
- }catch(e){CVVOICE.recording=false;CVVOICE.recognizer=null;voiceListening(false);document.getElementById('voice-status').textContent='Microphone unavailable: '+e.message;}
+ if(CVVOICE.active){
+  const rec=CVVOICE.recognizer;
+  // Keep the current transcript; a natural onend callback is not needed to stop safely.
+  voiceStop();
+  document.getElementById('voice-status').textContent='Stopped — review the details or speak again.';
+  return;
+ }
+ if(!(window.SpeechRecognition||window.webkitSpeechRecognition)){
+  document.getElementById('voice-status').textContent='Please use your keyboard microphone or type.';
+  return;
+ }
+ CVVOICE.active=true;CVVOICE.quietEnds=0;
+ CVVOICE.base=document.getElementById('voice-transcript').value.trim();
+ voiceListening(true);
+ voiceStartSession();
 }
 function voicePreview(){
  const d=voiceParse(document.getElementById('voice-transcript')?.value),el=document.getElementById('voice-preview');
@@ -111,7 +216,7 @@ function voiceInit(){
  '<p style="font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 10px">Example: “2015 Panini Prizm Nikola Jokic Silver PSA 9, paid 300, worth 450.” For precise entry, say “player”, “brand”, “grade” and “paid”.</p>'+
  '<button class="btn btn-primary" type="button" id="voice-mic" onclick="voiceListen()">🎤 Start Talking</button>'+
  '<div id="voice-status" role="status" style="font-size:12px;color:var(--text2);margin:8px 0 10px">Tap to speak.</div>'+
- '<label class="form-label" for="voice-transcript">Transcript — edit if needed</label><textarea id="voice-transcript" class="form-input" rows="4" style="min-height:100px;width:100%" placeholder="Player Nikola Jokic, brand Panini Prizm, grade PSA 9, paid 300, worth 450" oninput="voicePreview()"></textarea>'+
+ '<label class="form-label" for="voice-transcript">Transcript — edit if needed</label><textarea id="voice-transcript" class="form-input" rows="4" style="min-height:100px;width:100%" placeholder="Player Nikola Jokic, brand Panini Prizm, grade PSA 9, paid 300, worth 450" oninput="voicePreview();voiceTyped()"></textarea>'+
  '<div id="voice-preview"></div>'+
  '<button class="btn btn-primary" id="voice-apply" type="button" onclick="voiceApply()">Fill Inventory Form</button>'+
  '<p style="font-size:11px;color:var(--muted);line-height:1.5;margin:0 0 12px">No paid AI API. Your browser may process speech using an online service. CardVault does not retain recordings or the transcript; it saves only the fields you approve.</p></div></div>';
