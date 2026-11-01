@@ -5,6 +5,7 @@ Publisher failures preserve last-known dates. Dates remain informational and
 are never guaranteed preorder or release commitments.
 """
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -139,6 +140,7 @@ def main():
     current = json.loads(DEST.read_text(encoding='utf-8'))
     sources = current.get('sources', {})
     updates = {}
+    failures = {}
     for brand, address, parser in [('Topps', TOPPS, lambda body: parse_topps(body, today)),
                                    ('Panini', PANINI, parse_panini)]:
         try:
@@ -147,9 +149,30 @@ def main():
             sources[brand] = {'lastVerified': today.isoformat(), 'url': address}
             print(f'{brand}: verified {len(items)} entries')
         except Exception as exc:
+            failures[brand] = str(exc)
             print(f'{brand}: {exc} (kept last successful entries)', file=sys.stderr)
     if not updates:
-        raise SystemExit('Both publishers failed; schedule unchanged')
+        # Blocking/rate limits by external publishers are not a CardVault code failure.
+        # Preserve the previously verified snapshot and exit successfully, so
+        # GitHub does not email the owner daily for inaccessible publisher pages.
+        last_verified = current.get('asOf', 'unknown')
+        summary = ('⚠️ CardVault Release Calendar: No publisher updates verified.\\n\\n'
+                   f'Both publisher websites were unavailable; the existing snapshot '
+                   f'(last verified {last_verified}) was preserved unchanged.\\n\\n'
+                   'Check the Topps and Panini websites directly before acting on release dates.\\n\\n')
+        for brand, reason in failures.items():
+            summary += f'- {brand}: {reason}\\n'
+        summary = summary.replace('\\n', '\n')
+        print(summary, file=sys.stderr)
+        step_summary = os.environ.get('GITHUB_STEP_SUMMARY')
+        if step_summary:
+            with open(step_summary, 'a', encoding='utf-8') as report:
+                report.write('### Calendar update skipped — source sites unavailable\n\n'
+                             f'**Last verified source snapshot:** {last_verified}\n\n'
+                             'No dates or release entries were changed. '
+                             'Verify directly with publishers before purchasing.\n\n'
+                             + '\n'.join(f'- {brand}: {reason}' for brand, reason in failures.items()) + '\n')
+        return
     current['events'] = merge(current, updates, today)
     current['asOf'] = today.isoformat()
     current['sources'] = sources
