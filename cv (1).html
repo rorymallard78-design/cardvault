@@ -346,16 +346,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="header-row">
     <div class="logo">CARD<span>VAULT</span></div>
     <div class="header-right">
-      <div class="pro-badge">⚡ PRO</div>
+      
       <button class="settings-btn" onclick="showPage('settings')">⚙️</button>
     </div>
   </div>
-  <div class="hstats">
-    <div class="hstat"><div class="hstat-val" id="hs-cards">0</div><div class="hstat-label">Cards</div></div>
-    <div class="hstat"><div class="hstat-val" id="hs-value">$0</div><div class="hstat-label">Est. Value</div></div>
-    <div class="hstat"><div class="hstat-val" id="hs-invested">$0</div><div class="hstat-label">Invested</div></div>
-    <div class="hstat"><div class="hstat-val" id="hs-pl">+$0</div><div class="hstat-label">Unrealized</div></div>
-  </div>
+
 </div>
 
 <!-- PAGES -->
@@ -369,7 +364,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="dash-card"><div class="dash-icon">💰</div><div class="dash-val" id="d-value">$0.00</div><div class="dash-label">Est. Value</div></div>
     <div class="dash-card"><div class="dash-icon">📥</div><div class="dash-val" id="d-invested">$0.00</div><div class="dash-label">Total Invested</div></div>
     <div class="dash-card green"><div class="dash-icon">📈</div><div class="dash-val" id="d-pl">+$0.00</div><div class="dash-label">Unrealized P&L</div></div>
-    <div class="dash-card wide blue"><div class="dash-icon">✅</div><div style="display:flex;gap:20px;margin-top:4px"><div><div class="dash-val" id="d-rpl">+$0.00</div><div class="dash-label">Realized P&L</div></div><div><div class="dash-val" id="d-sold">0</div><div class="dash-label">Cards Sold</div></div><div><div class="dash-val" id="d-rev">$0.00</div><div class="dash-label">Revenue</div></div></div></div>
+    
+  </div>
+  <div style="margin:18px 0 14px">
+    <div style="font-size:13px;font-weight:700;color:var(--text2);letter-spacing:.7px;text-transform:uppercase;margin-bottom:9px">Needs Attention</div>
+    <div id="dash-attention"></div>
   </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
     <div style="font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Recent Inventory</div>
@@ -956,6 +955,9 @@ function batchConfirm(mode){
   <button class="btn btn-secondary" onclick="renderBatchReview()">← Back to Review</button>`;
 }
 function batchCommit(mode){
+  if(batchItems.some(it=>{const c=String(it.cost??'').trim(),v=String(it.value??'').trim();return (c!==''&&(!Number.isFinite(Number(c))||Number(c)<0))||(v!==''&&(!Number.isFinite(Number(v))||Number(v)<0));})){
+    toast('Review invalid or negative batch purchase costs and market values.','error');return;
+  }
   const cards=batchItems.map(it=>{
     const cost=parseFloat(it.cost)||0, val=mode==='later'?0:(parseFloat(it.value)||0);
     return {id:newId(),player:it.player.trim(),sport:it.sport||'Other',year:it.year.trim(),team:it.team.trim(),set:it.set.trim(),cardNum:it.cardNum.trim(),variation:it.variation.trim(),printRun:it.printRun.trim(),condition:it.grade?'Graded':(it.condition||'Raw'),grade:it.grade.trim(),certNumber:it.certNumber.trim(),cost,value:val,needsPricing:!(val>0),notes:it.notes||'',photo:it.photo||null,dateAdded:new Date().toISOString()};
@@ -1504,8 +1506,14 @@ function saveEdit(){
   card.cardNum=se('e-cardnum').value.trim();
   card.variation=se('e-variation').value.trim();
   card.printRun=se('e-printrun').value.trim();
-  card.cost=parseFloat(se('e-cost').value)||0;
-  { const _ev=parseFloat(se('e-value').value)||0; card.value=(_ev>0||!card.needsPricing)?(_ev||card.cost):0; if(_ev>0) card.needsPricing=false; }
+  const costRaw=se('e-cost').value.trim(),valueRaw=se('e-value').value.trim();
+  const parsedCost=costRaw===''?0:Number(costRaw),parsedValue=valueRaw===''?0:Number(valueRaw);
+  if(!Number.isFinite(parsedCost)||parsedCost<0||!Number.isFinite(parsedValue)||parsedValue<0){
+    toast('Cost and estimated value must be valid nonnegative amounts.','error');switchEditTab('price');return;
+  }
+  card.cost=Math.round(parsedCost*100)/100;
+  card.value=Math.round(parsedValue*100)/100;
+  card.needsPricing=!(parsedValue>0);
   card.notes=se('e-notes').value.trim();
   card.condition=se('e-condition').value;
   card.grade=se('e-grade').value;
@@ -1712,7 +1720,9 @@ function saveNewCard(){
   if(!player){ toast('Player name required — check Card Info tab','error'); switchAddTab('info'); return; }
   if(!se('n-sport').value) se('n-sport').value='Other';
   const sport = se('n-sport').value;
-  const cost = parseFloat(se('n-cost').value)||0;
+  const costRaw=se('n-cost').value.trim(),valueRaw=se('n-value').value.trim();
+  const cost=costRaw===''?0:Number(costRaw),newValue=valueRaw===''?0:Number(valueRaw);
+  if(!Number.isFinite(cost)||cost<0||!Number.isFinite(newValue)||newValue<0){toast('Enter valid nonnegative cost and market value.','error');switchAddTab('price');return;}
   const photoVal = scanPhoto || (se('n-photo-data') ? se('n-photo-data').value || null : null);
   const card = {
     id: newId(),
@@ -1727,8 +1737,8 @@ function saveNewCard(){
     grade: se('n-grade').value,
     certNumber: se('n-cert').value.trim(),
     cost,
-    value: parseFloat(se('n-value').value)||0,
-    needsPricing: !(parseFloat(se('n-value').value)>0),
+    value: Math.round(newValue*100)/100,
+    needsPricing: !(newValue>0),
     notes: se('n-notes').value.trim(),
     photo: photoVal,
     dateAdded: new Date().toISOString()
@@ -1799,9 +1809,9 @@ function renderDash(){
   se('d-invested').textContent=fmt(tc);
   se('d-pl').textContent=fmtPL(unr);
   se('d-pl').style.color=unr>=0?'var(--green)':'var(--red)';
-  se('d-rpl').textContent=fmtPL(rpl);
-  se('d-sold').textContent=soldHistory.length;
-  se('d-rev').textContent=fmt(rev);
+  if(se('d-rpl'))se('d-rpl').textContent=fmtPL(rpl);
+  if(se('d-sold'))se('d-sold').textContent=soldHistory.length;
+  if(se('d-rev'))se('d-rev').textContent=fmt(rev);
   const recent = inventory.slice(0,5);
   se('dash-recent').innerHTML = recent.length ? recent.map(c=>cardHTML(c)).join('') :
     `<div class="empty"><div class="empty-icon">🃏</div><div class="empty-title">Empty Vault</div><div class="empty-sub">Tap + to add your first card</div></div>`;
@@ -1811,15 +1821,7 @@ function renderDash(){
   updateHeader();
 }
 function updateHeader(){
-  const tv=inventory.reduce((s,c)=>s+(c.value||0),0);
-  const tc=inventory.reduce((s,c)=>s+(c.cost||0),0);
-  const unr=tv-tc;
-  se('hs-cards').textContent=inventory.length;
-  se('hs-value').textContent=fmtShort(tv);
-  se('hs-invested').textContent=fmtShort(tc);
-  const plEl=se('hs-pl');
-  plEl.textContent=(unr>=0?'+':'-')+'$'+(Math.abs(unr)>=1000?(Math.abs(unr)/1000).toFixed(1)+'k':Math.abs(unr).toFixed(0));
-  plEl.className='hstat-val '+(unr>=0?'green':'red');
+  // Portfolio totals now live in Dashboard tiles; no repeated header strip.
 }
 
 // ===== RENDER INVENTORY =====
@@ -2255,7 +2257,7 @@ function openSharedCard(idx) {
       <div style="font-size:20px;font-weight:700;margin-bottom:4px">${safe(c.player)}</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${meta}</div>
       ${variation}${printRun}${grade}${cond}
-      <div style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px">${fmt(c.value)}</div>
+      ${c.value!=null?`<div style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px">${fmt(c.value)}</div>`:""}
       ${notes}
     </div>`;
   se('shared-modal').style.display='block';
@@ -2272,7 +2274,7 @@ function _renderSharedCards(cards) {
   se('main-app').style.display='none';
   se('shared-view').style.display='block';
   const total = cards.reduce((s,c)=>s+(c.value||0),0);
-  se('shared-body').innerHTML = `<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · ${fmt(total)} total value · <span style="color:var(--muted)">Tap a card for details</span></div>`
+  se('shared-body').innerHTML = `<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · <span style="color:var(--muted)">Tap a card for details</span></div>`
     + cards.map((c,i)=>{
       const hasPhoto = c.photo && c.photo !== '[photo]';
       const thumb = hasPhoto
@@ -2283,7 +2285,7 @@ function _renderSharedCards(cards) {
         <div class="card-thumb" style="${hasPhoto?'padding:0;overflow:hidden;':'display:flex;align-items:center;justify-content:center;'}">${thumb}</div>
         <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
         <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
-        <div class="card-prices"><div class="price-val">${fmt(c.value)}</div><div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
+        <div class="card-prices">${c.value!=null?`<div class="price-val">${fmt(c.value)}</div>`:""}<div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
       </div>`;
     }).join('');
 }
@@ -2487,5 +2489,10 @@ function clearAllData(){
   }
 })();
 </script>
+<script src="cv-features.js?v=restore-reconcile-v2"></script>
+<script src="cv-receipts.js?v=1"></script>
+<script src="cv-grading.js?v=restore-reconcile-v2"></script>
+<script src="cv-dashboard.js?v=dash-clean-v1"></script>
+<script src="cv-insights.js?v=tile-grid-v4"></script>
 </body>
 </html>
