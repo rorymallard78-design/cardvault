@@ -1933,7 +1933,7 @@ function renderPlayers(){
     const pl=val-cards.reduce((s,c)=>s+(c.cost||0),0);
     const initials=name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const photo=cards.find(c=>c.photo);
-    const avatar=photo?`<img src="${photo.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:`<span>${initials}</span>`;
+    const avatar=photo&&safeImageSrc(photo.photo)?`<img src="${safeImageSrc(photo.photo)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:`<span>${safe(initials)}</span>`;
     return `<div class="player-card" onclick="openPlayerFolder('${safe(name).replace(/'/g,"\\'")}')">
       <div class="player-card-inner">
         <div class="player-avatar">${avatar}</div>
@@ -2324,14 +2324,14 @@ function openSharedCard(idx) {
   const c = _sharedCards[idx];
   if(!c) return;
   const hasPhoto = !!safeImageSrc(c.photo);
-  const meta = [c.year, safe(c.team), safe(c.set)].filter(Boolean).join(' · ');
+  const meta = [c.year,c.team,c.set].filter(Boolean).map(safe).join(' · ');
   const variation = c.variation ? `<div style="font-size:13px;color:var(--gold);margin-bottom:8px">${safe(c.variation)}</div>` : '';
-  const printRun = c.printRun ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Print Run: /${c.printRun}</div>` : '';
+  const printRun = c.printRun ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Print Run: /${safe(c.printRun)}</div>` : '';
   const grade = c.grade ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Grade: ${safe(c.grade)}${c.certNumber?' · Cert #'+safe(c.certNumber):''}</div>` : '';
   const cond = !c.grade && c.condition ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Condition: ${safe(c.condition)}</div>` : '';
   const notes = c.notes ? `<div style="font-size:12px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${safe(c.notes)}</div>` : '';
   se('shared-modal-body').innerHTML = `
-    ${hasPhoto ? `<div style="width:100%;background:#000;max-height:320px;overflow:hidden;display:flex;align-items:center;justify-content:center;"><img src="${c.photo}" style="width:100%;max-height:320px;object-fit:contain;"></div>` : `<div style="width:100%;height:160px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:56px">${sportEmoji(c.sport)}</div>`}
+    ${hasPhoto ? `<div style="width:100%;background:#000;max-height:320px;overflow:hidden;display:flex;align-items:center;justify-content:center;"><img src="${safeImageSrc(c.photo)}" style="width:100%;max-height:320px;object-fit:contain;"></div>` : `<div style="width:100%;height:160px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:56px">${sportEmoji(c.sport)}</div>`}
     <div style="padding:16px">
       <div style="font-size:20px;font-weight:700;margin-bottom:4px">${safe(c.player)}</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${meta}</div>
@@ -2411,21 +2411,21 @@ function _buildShareHTML(cards) {
   const rows = cards.map(c => {
     const hasPhoto = !!safeImageSrc(c.photo);
     const thumb = hasPhoto
-      ? `<img src="${c.photo}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
+      ? `<img src="${safeImageSrc(c.photo)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
       : `<div style="width:56px;height:56px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${sportIcon(c.sport)}</div>`;
-    const meta = [c.year,c.set,c.variation].filter(Boolean).join(' · ');
+    const meta = [c.year,c.set,c.variation].filter(Boolean).map(safe).join(' · ');
     const badge = c.grade
-      ? `<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.grade}</span>`
-      : `<span style="background:#1e293b;color:#94a3b8;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.condition||''}</span>`;
-    const pr = c.printRun ? `<span style="background:#1e293b;color:#f59e0b;font-size:10px;padding:2px 6px;border-radius:4px">/${c.printRun}</span>` : '';
+      ? `<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${safe(c.grade)}</span>`
+      : `<span style="background:#1e293b;color:#94a3b8;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${safe(c.condition||'')}</span>`;
+    const pr = c.printRun ? `<span style="background:#1e293b;color:#f59e0b;font-size:10px;padding:2px 6px;border-radius:4px">/${safe(c.printRun)}</span>` : '';
     const val = c.value ? `<div style="font-size:15px;font-weight:700;color:#f59e0b">$${c.value.toLocaleString()}</div>` : '';
-    const photoFull = hasPhoto ? `<div id="pf${c.id}" style="display:none"><img src="${c.photo}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin-top:8px;"></div>` : '';
-    const notesHtml = c.notes ? `<div style="font-size:12px;color:#64748b;margin-top:4px">${c.notes}</div>` : '';
+    const photoFull = hasPhoto ? `<div id="pf${Number.isSafeInteger(Number(c.id))?Number(c.id):-1}" style="display:none"><img src="${safeImageSrc(c.photo)}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin-top:8px;"></div>` : '';
+    const notesHtml = c.notes ? `<div style="font-size:12px;color:#64748b;margin-top:4px">${safe(c.notes)}</div>` : '';
     const tapHint = hasPhoto ? `<div style="font-size:10px;color:#334155;margin-top:4px">tap to expand photo</div>` : '';
-    return `<div onclick="var d=document.getElementById('pf${c.id}');if(d)d.style.display=d.style.display==='block'?'none':'block'" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
+    return `<div onclick="var d=document.getElementById('pf${Number.isSafeInteger(Number(c.id))?Number(c.id):-1}');if(d)d.style.display=d.style.display==='block'?'none':'block'" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
       ${thumb}
       <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:2px">${c.player||''}</div>
+        <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:2px">${safe(c.player||'')}</div>
         <div style="font-size:11px;color:#64748b;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${meta}</div>
         <div>${badge}${pr}</div>
         ${notesHtml}${tapHint}${photoFull}
