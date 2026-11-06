@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import worker from '../pilot-backend/src/index.js';
+const url='https://cardvault-pilot.example';
+const env={DB:{prepare(){return {first:async()=>({max_scans:1000,max_spend_micro_usd:20000000,claimed_scans:0,completed_scans:0,failed_scans:0,spent_micro_usd:0,reserved_micro_usd:0}),all:async()=>({results:[]})}}},ANTHROPIC_API_KEY:'testkey',ADMIN_TOKEN:'\n   my-strong-token  \n',ALLOWED_ORIGIN:'https://rorymallard78-design.github.io'};
+const call=async token=>worker.fetch(new Request(url+'/v1/admin/stats',{headers:{Origin:url,Authorization:'Bearer '+token}}),env);
+assert.equal((await call('my-strong-token')).status,200,'dashboard-pasted token should authenticate if stored secret has incidental whitespace');
+assert.equal((await call('different-token')).status,401,'wrong tokens remain unauthorized');
+assert.equal((await call('')).status,401,'empty tokens remain unauthorized');
+assert.equal((await call('my-strong-token-extra')).status,401,'prefixes must not authenticate');
+console.log('Pilot admin secret whitespace normalization passed.');
