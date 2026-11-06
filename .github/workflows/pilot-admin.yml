@@ -1,7 +1,7 @@
 name: CardVault pilot admin checks
 on:
   push:
-    branches: [pilot-admin-mobile, pilot-admin-auth-diagnostics]
+    branches: [pilot-admin-mobile, pilot-admin-auth-diagnostics, pilot-admin-token-normalization]
     paths:
       - 'pilot-backend/src/**'
       - 'tests/pilot-admin-smoke.mjs'
@@ -25,3 +25,4 @@ jobs:
       - run: node --check pilot-backend/src/index.js
       - run: node tests/pilot-admin-smoke.mjs
       - run: node tests/pilot-admin-auth.mjs
+      - run: node tests/pilot-admin-token.mjs
