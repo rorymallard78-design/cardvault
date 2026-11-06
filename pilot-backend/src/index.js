@@ -266,19 +266,30 @@ function adminPage() {
 
 export default {
   async fetch(request, env) {
+    const requestUrl = new URL(request.url);
+    const path = requestUrl.pathname;
     const originHeader = request.headers.get('Origin');
-    const origin = allowedOrigin(request, env);
+    // Browser requests from our hosted admin page have the Worker's own Origin,
+    // whereas the CardVault PWA comes from GitHub Pages. Allow only those two.
+    const isAdminRoute = path === '/admin' || path.startsWith('/v1/admin/');
+    const isSameOriginAdmin = isAdminRoute && originHeader === requestUrl.origin;
+    const origin = allowedOrigin(request, env) || (isSameOriginAdmin ? requestUrl.origin : '');
     if (originHeader && !origin) return problem('Origin not permitted', 403, '');
     if (request.method === 'OPTIONS') return origin ? respond({ ok: true }, 200, origin) : problem('Origin not permitted', 403, '');
-    const path = new URL(request.url).pathname;
     if (path === '/admin' && request.method === 'GET') return adminPage();
     try {
-      if (path === '/v1/health' && request.method === 'GET') return respond({ ok: true, configured: !!(env.DB && env.ANTHROPIC_API_KEY) }, 200, origin);
+      if (path === '/v1/health' && request.method === 'GET') return respond({
+        ok: true,
+        configured: !!(env.DB && env.ANTHROPIC_API_KEY),
+        adminSecretPresent: !!env.ADMIN_TOKEN,
+        release: 'pilot-admin-auth-check-1'
+      }, 200, origin);
       if (!env.DB || !env.ANTHROPIC_API_KEY) return problem('Pilot scanning backend not configured', 503, origin);
       if (path === '/v1/status' && request.method === 'GET') return handleStatus(request, env, origin);
       if (path === '/v1/scan' && request.method === 'POST') return handleScan(request, env, origin);
       if (path.startsWith('/v1/admin/')) {
-        if (!isAdmin(request, env)) return problem('Unauthorized', 401, origin);
+        if (!env.ADMIN_TOKEN) return problem('Administrator secret missing from deployed Worker', 503, origin);
+        if (!isAdmin(request, env)) return problem('Administrator token does not match deployed Worker', 401, origin);
         if (path === '/v1/admin/invites' && request.method === 'POST') return createInvite(request, env, origin);
         if (path === '/v1/admin/stats' && request.method === 'GET') return adminStats(env, origin);
         if (path === '/v1/admin/revoke' && request.method === 'POST') return revokeInvite(request, env, origin);
