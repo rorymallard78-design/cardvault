@@ -2507,6 +2507,29 @@ async function generateShareLink(){
   }
 }
 
+// Shared Gist links are untrusted external JSON, not full CardVault backups.
+function cvValidateSharedCollection(rows) {
+  if(!Array.isArray(rows) || rows.length>2500)throw Error('Shared collection is invalid or too large');
+  const short=(v,max=180)=>typeof v==='string'?v.slice(0,max):'';
+  return rows.map(x=>{
+    if(!x || typeof x!=='object' || Array.isArray(x))throw Error('Invalid shared card');
+    const c={
+      player:short(x.player),year:short(x.year,20),sport:short(x.sport,40),
+      team:short(x.team),set:short(x.set),cardNum:short(x.cardNum,40),
+      variation:short(x.variation),condition:short(x.condition,40),
+      grade:short(x.grade,40),certNumber:short(x.certNumber,40),
+      printRun:short(x.printRun,40),
+    };
+    const numericId=Number(x.id);
+    if(Number.isSafeInteger(numericId)&&numericId>=0)c.id=numericId;
+    else c.id=0;
+    const value=Number(x.value);
+    if(x.value!==undefined&&x.value!==null&&Number.isFinite(value)&&value>=0&&value<=100000000)c.value=value;
+    if(typeof x.photo==='string'&&x.photo.length<=220000&&safeImageSrc(x.photo))c.photo=x.photo;
+    // Intentionally omit raw notes, cost basis, tokens and all other fields.
+    return c;
+  });
+}
 async function checkSharedView(){
   function getParam(str, key) {
     const idx = str.indexOf(key+'=');
@@ -2536,8 +2559,10 @@ async function checkSharedView(){
     if(rawUrl.protocol!=='https:' || rawUrl.hostname!=='gist.githubusercontent.com')throw new Error('Unexpected shared collection source');
     const rawRes = await fetch(rawUrl.toString());
     if(!rawRes.ok) throw new Error('Could not fetch collection data');
-    const cards = await rawRes.json();
-    _renderSharedCards(Array.isArray(cards) ? cards : []);
+    const rawText=await rawRes.text();
+    if(rawText.length>60*1024*1024)throw Error('Shared collection exceeds the safety limit');
+    const cards=cvValidateSharedCollection(JSON.parse(rawText));
+    _renderSharedCards(cards);
     return true;
   } catch(e) {
     _sharedError('Could not load shared collection.<br><small style="color:var(--muted)">' + e.message + '</small>');
