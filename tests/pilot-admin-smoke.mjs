@@ -7,7 +7,7 @@ assert.equal(res.headers.get('cache-control'),'no-store');
 assert.equal(res.headers.get('x-frame-options'),'DENY');
 const page=await res.text();
 assert.ok(page.includes('id="token"'));
-assert.ok(page.includes("'/v1/admin/'+route"));
+assert.ok(page.includes("'/v1/admin/'+path"));
 assert.ok(!page.includes('localStorage'));
 assert.ok(!page.includes('sessionStorage'));
 const matches=[...page.matchAll(/<script>([\s\S]*?)<\/script>/g)];
