@@ -6,7 +6,7 @@ compatibility_date = "2026-10-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "cardvaultpilot"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "8866b080-1db4-4d14-80ce-aa79c3fe4ec7"
 
 [vars]
 ALLOWED_ORIGIN = "https://rorymallard78-design.github.io"
