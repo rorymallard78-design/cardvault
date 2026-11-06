@@ -1,0 +1,15 @@
+name = "cardvault-pilot"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# D1 database ID is returned by: npx wrangler d1 create cardvault-pilot
+[[d1_databases]]
+binding = "DB"
+database_name = "cardvault-pilot"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+ALLOWED_ORIGIN = "https://rorymallard78-design.github.io"
+
+[triggers]
+crons = ["*/5 * * * *"]
