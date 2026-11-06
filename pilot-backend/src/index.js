@@ -54,7 +54,8 @@ function newCode() {
 }
 function isAdmin(request, env) {
   const provided = request.headers.get('Authorization') || '';
-  const expected = env.ADMIN_TOKEN ? 'Bearer ' + env.ADMIN_TOKEN : '';
+  const configuredToken = typeof env.ADMIN_TOKEN === 'string' ? env.ADMIN_TOKEN.trim() : '';
+  const expected = configuredToken ? 'Bearer ' + configuredToken : '';
   if (!expected || provided.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
