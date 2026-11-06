@@ -150,10 +150,11 @@ async function cvLiveExecute(){
   }
   await cvRecoveryCommit();journal=false;
   inventory=nextInventory;soldHistory=nextSales;
-  localStorage.setItem('cv_beta_last_live_copy',new Date().toISOString());
-  toast('Copied '+inventory.length+' cards and '+soldHistory.length+' sales into beta','success');
-  renderDash();renderInventory();renderSold();renderPlayers();updateHeader();
+  try{localStorage.setItem('cv_beta_last_live_copy',new Date().toISOString())}catch(e){console.warn('Copy completed without timestamp',e)}
+  try{renderDash();renderInventory();renderSold();renderPlayers();updateHeader();}
+  catch(e){console.error('Copy saved; display refresh needs reload',e)}
   if(status)status.innerHTML='<p style="color:var(--green)">Copy complete: '+inventory.length+' cards · '+soldHistory.length+' sales · '+photos.size+' available photos copied. Original live records are unchanged.</p><p>Check Inventory, Sold History and Financial Insights. Do not record new sales in both apps; they do not sync automatically.</p>';
+  toast('Copied '+inventory.length+' cards and '+soldHistory.length+' sales into beta','success');
  }catch(error){
   console.error('Live-to-beta copy failed',error);
   let recovered=!journal;
