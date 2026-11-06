@@ -228,7 +228,7 @@ async function revokeInvite(request, env, origin) {
   return changed ? respond({ ok: true, id }, 200, origin) : problem('Invitation not found', 404, origin);
 }
 function adminPage(){
-const html = \`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CardVault Pilot Manager</title><style>
+const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CardVault Pilot Manager</title><style>
 :root{font-family:system-ui;color-scheme:dark;background:#111827;color:#eee}body{max-width:650px;margin:auto;padding:18px}
 section{background:#1e293b;border:1px solid #475569;border-radius:12px;margin:14px 0;padding:16px}
 input{background:#111827;color:white;border:1px solid #64748b;border-radius:8px;padding:12px;width:100%;box-sizing:border-box;font-size:16px}
@@ -336,7 +336,7 @@ el('refresh').onclick=()=>refresh().then(()=>say('Updated')).catch(e=>say(e.mess
 el('create').onclick=async()=>{const label=el('label').value.trim();if(!label){say('Enter tester label');return}try{const d=await api('invites','POST',{label});el('newcode').textContent=d.code;el('newbox').classList.remove('hidden');el('label').value='';await refresh();say('Created code. Copy it now.')}catch(e){say(e.message)}};
 el('copy').onclick=()=>navigator.clipboard.writeText(el('newcode').textContent).then(()=>say('Copied')).catch(()=>say('Select and copy code manually.'));
 })();
-</script></body></html>\`;
+</script></body></html>`;
 return new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}});
 }
 
