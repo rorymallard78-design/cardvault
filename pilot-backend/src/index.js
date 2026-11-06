@@ -227,6 +227,43 @@ async function revokeInvite(request, env, origin) {
   const changed = await env.DB.prepare('UPDATE pilot_invites SET active=0 WHERE id=? RETURNING id').bind(id).first();
   return changed ? respond({ ok: true, id }, 200, origin) : problem('Invitation not found', 404, origin);
 }
+function adminPage() {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CardVault Pilot Manager</title><style>
+  :root{font-family:system-ui;color-scheme:dark;background:#101827;color:#eee}body{max-width:640px;margin:auto;padding:18px}
+  section{border:1px solid #475569;border-radius:12px;background:#1e293b;padding:15px;margin:14px 0}input{padding:12px;background:#101827;border:1px solid #64748b;border-radius:8px;width:100%;color:white;box-sizing:border-box;font-size:16px}
+  button{border:0;border-radius:8px;padding:12px;background:#ebb54c;color:#111;font-weight:bold;margin:8px 6px 0 0}#message{color:#ebb54c;white-space:pre-wrap}.hidden{display:none}
+  table{width:100%;border-collapse:collapse}td,th{padding:8px 3px;text-align:left;border-bottom:1px solid #475569}small{color:#aaa}#newcode{overflow-wrap:anywhere;background:#101827;padding:12px;font-family:monospace}
+  </style></head><body><h2>CardVault Pilot Manager</h2><p>Manage invitations from your phone.</p><section><label for="token">Administrator token</label><input id="token" type="password" autocomplete="off" placeholder="Paste ADMIN_TOKEN"><button id="unlock">Unlock</button><button id="lock">Lock</button><p><small>The token stays in memory only until this page closes. It is not saved.</small></p></section><p id="message" role="status"></p>
+  <div id="panel" class="hidden"><section><h3>Usage</h3><p id="stats"></p><button id="refresh">Refresh</button></section><section><h3>Create an invitation</h3><input id="label" maxlength="100" placeholder="Tester name"><button id="create">Create 50-scan code</button><div id="newbox" class="hidden"><p>Copy this code now; it cannot be retrieved later.</p><div id="newcode"></div><button id="copy">Copy Code</button></div></section><section><h3>Invitations</h3><table><thead><tr><th>Tester</th><th>Used</th><th>State</th><th>Action</th></tr></thead><tbody id="list"></tbody></table></section></div>
+  <script>
+  (()=>{'use strict';let token='';const el=id=>document.getElementById(id),say=t=>el('message').textContent=t;
+  function lock(){token='';el('token').value='';el('panel').classList.add('hidden');el('newbox').classList.add('hidden');say('Locked.')}
+  async function api(path,method='GET',body){
+   if(!token)throw Error('Enter your token.');
+   const r=await fetch('/v1/admin/'+path,{method,headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+   const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'Request failed');return d;
+  }
+  async function refresh(){
+   const d=await api('stats');
+   el('stats').textContent=d.completedScans+' completed scans; measured cost USD '+Number(d.estimatedSpentUsd||0).toFixed(4)+' of USD '+Number(d.budgetUsd||0).toFixed(2)+' pilot budget.';
+   el('list').replaceChildren();
+   for(const inv of d.invitations||[]){
+    const tr=document.createElement('tr');
+    for(const text of [inv.label,inv.used+'/'+inv.quota,inv.active?'Active':'Revoked']){let td=document.createElement('td');td.textContent=text;tr.append(td);}
+    const td=document.createElement('td');
+    if(inv.active){const b=document.createElement('button');b.textContent='Revoke';b.onclick=async()=>{if(!confirm('Revoke '+inv.label+'?'))return;try{await api('revoke','POST',{id:inv.id});await refresh();say('Revoked.')}catch(e){say(e.message)}};td.append(b)}
+    tr.append(td);el('list').append(tr);
+   }
+  }
+  el('unlock').onclick=async()=>{token=el('token').value.trim();el('token').value='';try{await refresh();el('panel').classList.remove('hidden');say('Unlocked.')}catch(e){lock();say(e.message)}};
+  el('lock').onclick=lock;el('refresh').onclick=()=>refresh().catch(e=>say(e.message));
+  el('create').onclick=async()=>{const label=el('label').value.trim();if(!label){say('Enter tester name');return}try{const d=await api('invites','POST',{label});el('newcode').textContent=d.code;el('newbox').classList.remove('hidden');el('label').value='';await refresh();say('Code created. Copy it now.')}catch(e){say(e.message)}};
+  el('copy').onclick=()=>navigator.clipboard.writeText(el('newcode').textContent).then(()=>say('Copied')).catch(()=>say('Select and copy the code manually.'));
+  })();
+  </script></body></html>`;
+  return new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}});
+}
+
 export default {
   async fetch(request, env) {
     const originHeader = request.headers.get('Origin');
@@ -234,6 +271,7 @@ export default {
     if (originHeader && !origin) return problem('Origin not permitted', 403, '');
     if (request.method === 'OPTIONS') return origin ? respond({ ok: true }, 200, origin) : problem('Origin not permitted', 403, '');
     const path = new URL(request.url).pathname;
+    if (path === '/admin' && request.method === 'GET') return adminPage();
     try {
       if (path === '/v1/health' && request.method === 'GET') return respond({ ok: true, configured: !!(env.DB && env.ANTHROPIC_API_KEY) }, 200, origin);
       if (!env.DB || !env.ANTHROPIC_API_KEY) return problem('Pilot scanning backend not configured', 503, origin);
