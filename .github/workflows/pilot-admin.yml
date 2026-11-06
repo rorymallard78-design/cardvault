@@ -1,7 +1,7 @@
 name: CardVault pilot admin checks
 on:
   push:
-    branches: [pilot-admin-mobile]
+    branches: [pilot-admin-mobile, pilot-admin-auth-diagnostics]
     paths:
       - 'pilot-backend/src/**'
       - 'tests/pilot-admin-smoke.mjs'
