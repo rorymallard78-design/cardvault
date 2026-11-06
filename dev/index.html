@@ -1934,7 +1934,7 @@ function renderPlayers(){
     const initials=name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const photo=cards.find(c=>c.photo);
     const avatar=photo&&safeImageSrc(photo.photo)?`<img src="${safeImageSrc(photo.photo)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:`<span>${safe(initials)}</span>`;
-    return `<div class="player-card" onclick="openPlayerFolder('${safe(name).replace(/'/g,"\\'")}')">
+    return `<div class="player-card" data-player-name="${safe(name)}" onclick="openPlayerFolder(this.dataset.playerName)">
       <div class="player-card-inner">
         <div class="player-avatar">${avatar}</div>
         <div style="flex:1;min-width:0"><div class="player-name">${safe(name)}</div><div class="player-stats">${cards.length} card${cards.length!==1?'s':''}</div></div>
@@ -1955,7 +1955,7 @@ function openPlayerFolder(name){
   se('player-detail-content').innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <div style="width:56px;height:56px;border-radius:50%;background:var(--bg3);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);overflow:hidden">
-        ${cards.find(c=>c.photo)?`<img src="${cards.find(c=>c.photo).photo}" style="width:100%;height:100%;object-fit:cover">`:name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+        ${cards.find(c=>safeImageSrc(c.photo))?`<img src="${safeImageSrc(cards.find(c=>safeImageSrc(c.photo)).photo)}" style="width:100%;height:100%;object-fit:cover">`:safe(name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2))}
       </div>
       <div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px">${safe(name)}</div>
@@ -2008,13 +2008,13 @@ function renderInsights(){
     return;
   }
   function insightItem(c,rank,mainVal,subVal,subColor){
-    const img=c.photo?`<img src="${c.photo}" alt="">`:sportEmoji(c.sport);
-    const meta=[c.year,safe(c.set),safe(c.grade||c.condition)].filter(Boolean).join(' · ');
+    const img=safeImageSrc(c.photo)?`<img src="${safeImageSrc(c.photo)}" alt="">`:sportEmoji(c.sport);
+    const meta=[c.year,c.set,c.grade||c.condition].filter(Boolean).map(safe).join(' · ');
     const rankClass=rank<=3?['','rank-1','rank-2','rank-3'][rank]:'';
-    return `<div class="insight-item card-item" onclick="openCard(${c.id})">
+    return `<div class="insight-item card-item" onclick="openCard(${Number.isSafeInteger(Number(c.id))?Number(c.id):-1})">
       <div class="insight-rank ${rankClass}">${rank}</div>
       <div class="insight-thumb">${img}</div>
-      <div class="insight-info"><div class="insight-name">${safe(c.player)}</div><div class="insight-meta">${meta||c.sport}</div></div>
+      <div class="insight-info"><div class="insight-name">${safe(c.player)}</div><div class="insight-meta">${meta||safe(c.sport)}</div></div>
       <div class="insight-right"><div class="insight-val">${mainVal}</div><div class="insight-pl" style="color:${subColor}">${subVal}</div></div>
     </div>`;
   }
@@ -2460,7 +2460,7 @@ async function generateShareLink(){
     // Compress photos to ~40KB each before uploading
     const TARGET = 40 * 1024;
     const snapshot = await Promise.all(inventory.map(async c => {
-      const card = {...c, cost:undefined};
+      const card = {id:c.id,player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,cardNum:c.cardNum,variation:c.variation,printRun:c.printRun,condition:c.condition,grade:c.grade,certNumber:c.certNumber,value:c.value,photo:c.photo};
       if(card.photo && card.photo.startsWith('data:') && card.photo.length * 0.75 > TARGET) {
         card.photo = await _compressForShare(card.photo, TARGET);
       }
@@ -2514,6 +2514,10 @@ async function checkSharedView(){
   }
   const gistId = getParam(window.location.search,'gist') || getParam(window.location.hash||'','gist');
   if(!gistId) return false;
+  if(!/^[a-f0-9]{20,32}$/i.test(gistId)){
+    _sharedError('Invalid shared collection link.');
+    return false;
+  }
 
   se('main-app').style.display='none';
   se('shared-view').style.display='block';
@@ -2528,7 +2532,9 @@ async function checkSharedView(){
     const fileInfo = data.files && data.files['collection.json'];
     if(!fileInfo) throw new Error('Collection not found in gist');
     // Use raw_url to get full content — GitHub truncates .content at 1MB
-    const rawRes = await fetch(fileInfo.raw_url);
+    const rawUrl = new URL(fileInfo.raw_url);
+    if(rawUrl.protocol!=='https:' || rawUrl.hostname!=='gist.githubusercontent.com')throw new Error('Unexpected shared collection source');
+    const rawRes = await fetch(rawUrl.toString());
     if(!rawRes.ok) throw new Error('Could not fetch collection data');
     const cards = await rawRes.json();
     _renderSharedCards(Array.isArray(cards) ? cards : []);
