@@ -934,7 +934,7 @@ function readFileAsDataURL(f){ return new Promise((res,rej)=>{ const r=new FileR
 async function handleBatch(e){
   const files=[...e.target.files]; e.target.value=''; if(!files.length) return;
   closeModal('modal-addmenu'); batchItems=[]; openModal('modal-batch');
-  const hasKey=!!getKey('ai'); se('batch-title').textContent='Scanning…';
+  const hasKey=!!getKey('ai') || (window.cvPilotEnabled && cvPilotEnabled()); se('batch-title').textContent='Scanning…';
   for(let i=0;i<files.length;i++){
     se('batch-body').innerHTML=`<div style="text-align:center;padding:30px;color:var(--text2)">${hasKey?'Scanning':'Preparing'} ${i+1} of ${files.length}…</div>`;
     const it={photo:null,player:'',year:'',sport:'',team:'',set:'',cardNum:'',variation:'',printRun:'',condition:'Raw',grade:'',certNumber:'',notes:'',cost:'',value:'',failed:false};
@@ -1649,7 +1649,7 @@ async function handlePhoto(e){
     // Also store in DOM so it survives any JS variable resets
     const photoInput = se('n-photo-data');
     if(photoInput) photoInput.value = compressed;
-    if(getKey('ai')){
+    if(getKey('ai') || (window.cvPilotEnabled && cvPilotEnabled())){
       showAddStep('scanning');
       se('scan-thumb').src = compressed;
       await runAIScan(compressed);
@@ -2579,7 +2579,7 @@ function clearAllData(){
   if(window.ResizeObserver&&cvNav)new ResizeObserver(syncFabPosition).observe(cvNav);
   window.addEventListener('resize',syncFabPosition);
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=pulse-backup-v5","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-photos-v3","cv-pulse.js?v=news-and-release-v2","cv-pulse-tiles.js?v=visual-1","cv-voice.js?v=keyboard-dictation-v3"];
+  const modules=["cv-features.js?v=pulse-backup-v5","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-photos-v3","cv-pulse.js?v=news-and-release-v2","cv-pulse-tiles.js?v=visual-1","cv-voice.js?v=keyboard-dictation-v3","cv-pilot.js?v=pilot-v1"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
