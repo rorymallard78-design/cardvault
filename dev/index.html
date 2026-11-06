@@ -1284,7 +1284,14 @@ function sportEmoji(s){ return {Baseball:'⚾',Basketball:'🏀',Football:'🏈'
 function fmt(n){ return '$'+Math.abs(parseFloat(n)||0).toFixed(2); }
 function fmtPL(n){ n=parseFloat(n)||0; return (n>=0?'+$':'-$')+Math.abs(n).toFixed(2); }
 function fmtShort(n){ n=parseFloat(n)||0; return '$'+(Math.abs(n)>=1000?(Math.abs(n)/1000).toFixed(1)+'k':Math.abs(n).toFixed(0)); }
-function safe(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function safe(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function safeImageSrc(s){
+  const v=String(s||'').trim();
+  if(/^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(v) ||
+     /^https:\/\/[^\s"'<>]+$/i.test(v) ||
+     /^blob:https?:\/\/[^\s"'<>]+$/i.test(v)) return safe(v);
+  return '';
+}
 function toast(msg, type=''){
   const t=se('toast');
   t.textContent=msg; t.className='toast show'+(type?' '+type:'');
@@ -1294,16 +1301,16 @@ function toast(msg, type=''){
 // ===== CARD HTML =====
 function cardHTML(card, showPL=true){
   const pl = (card.value||0)-(card.cost||0);
-  const img = card.photo ? `<img src="${card.photo}" alt="">` : sportEmoji(card.sport);
-  const meta = [card.year, safe(card.set), safe(card.variation), card.cardNum].filter(Boolean).join(' · ');
+  const img = safeImageSrc(card.photo) ? `<img src="${safeImageSrc(card.photo)}" alt="">` : sportEmoji(card.sport);
+  const meta = [card.year,card.set,card.variation,card.cardNum].filter(Boolean).map(safe).join(' · ');
   const gradeTag = card.grade ? `<span class="tag tag-grade">${safe(card.grade)}</span>` : `<span class="tag tag-cond">${safe(card.condition)}</span>`;
-  const printTag = card.printRun ? `<span class="tag tag-print">/${card.printRun}</span>` : '';
-  return `<div class="card-item" onclick="openCard(${card.id})">
+  const printTag = card.printRun ? `<span class="tag tag-print">/${safe(card.printRun)}</span>` : '';
+  return `<div class="card-item" onclick="openCard(${Number.isSafeInteger(Number(card.id))?Number(card.id):-1})">
     <div class="card-thumb">${img}</div>
     <div class="card-body">
       <div class="card-name">${safe(card.player)}</div>
-      <div class="card-meta">${meta||card.team||'—'}</div>
-      <div class="card-tags"><span class="tag tag-sport">${sportEmoji(card.sport)} ${card.sport}</span>${gradeTag}${printTag}${card.needsPricing?'<span class="tag" style="background:rgba(247,95,111,.15);color:var(--red);border:1px solid rgba(247,95,111,.3)">Needs pricing</span>':''}${_pendingVal()===card.id?`<span class="tag" style="background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold)" onclick="event.stopPropagation();openPasteVal(${card.id})">📋 Paste ChatGPT Valuation</span>`:''}</div>
+      <div class="card-meta">${meta||safe(card.team)||'—'}</div>
+      <div class="card-tags"><span class="tag tag-sport">${sportEmoji(card.sport)} ${safe(card.sport)}</span>${gradeTag}${printTag}${card.needsPricing?'<span class="tag" style="background:rgba(247,95,111,.15);color:var(--red);border:1px solid rgba(247,95,111,.3)">Needs pricing</span>':''}${_pendingVal()===card.id?`<span class="tag" style="background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold)" onclick="event.stopPropagation();openPasteVal(${card.id})">📋 Paste ChatGPT Valuation</span>`:''}</div>
     </div>
     <div class="card-prices">
       <div class="price-val">${fmt(card.value)}</div>
@@ -1368,8 +1375,8 @@ function renderDetail(card){
   const id = card.id;
   const pl = (card.value||0)-(card.cost||0);
   const plClass = pl>=0?'var(--green)':'var(--red)';
-  const img = card.photo ? `<img src="${card.photo}" alt="">` : sportEmoji(card.sport);
-  const meta = [card.year, safe(card.set), safe(card.variation)].filter(Boolean).join(' · ');
+  const img = safeImageSrc(card.photo) ? `<img src="${safeImageSrc(card.photo)}" alt="">` : sportEmoji(card.sport);
+  const meta = [card.year,card.set,card.variation].filter(Boolean).map(safe).join(' · ');
   const hasEbay = !!getKey('ebay');
   const isPSA = card.grade && card.grade.toUpperCase().startsWith('PSA');
   const hasPSA = !!getKey('psa');
@@ -1377,15 +1384,15 @@ function renderDetail(card){
 
   se('detail-body').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-img" id="detail-photo-thumb">${card.photo ? `<img src="${card.photo}" alt="">` : img}</div>
+      <div class="detail-img" id="detail-photo-thumb">${safeImageSrc(card.photo) ? `<img src="${safeImageSrc(card.photo)}" alt="">` : img}</div>
       <div class="detail-info">
         <div class="detail-name">${safe(card.player)}</div>
         <div class="detail-meta">${meta||'—'}</div>
         ${card.team?`<div class="detail-meta">${safe(card.team)}</div>`:''}
         <div class="detail-tags">
-          <span class="tag tag-sport">${sportEmoji(card.sport)} ${card.sport}</span>
+          <span class="tag tag-sport">${sportEmoji(card.sport)} ${safe(card.sport)}</span>
           ${card.grade?`<span class="tag tag-grade">${safe(card.grade)}</span>`:`<span class="tag tag-cond">${safe(card.condition)}</span>`}
-          ${card.printRun?`<span class="tag tag-print">/${card.printRun}</span>`:''}
+          ${card.printRun?`<span class="tag tag-print">/${safe(card.printRun)}</span>`:''}
         </div>
       </div>
     </div>
@@ -1434,7 +1441,7 @@ function renderDetail(card){
       </div>
       <div class="market-body" id="psa-body">
         <div class="market-empty">${hasPSA
-          ? (card.certNumber?`Cert #${card.certNumber} — tap Look Up`:'Tap Look Up to search by card details')
+          ? (card.certNumber?`Cert #${safe(card.certNumber)} — tap Look Up`:'Tap Look Up to search by card details')
           : 'Add your PSA token in Settings'}</div>
       </div>
     </div>` : ''}
@@ -1444,7 +1451,7 @@ function renderDetail(card){
     <div class="detail-section">
       <div class="detail-section-title">Details</div>
       ${card.cardNum?`<div class="detail-row"><span class="detail-row-label">Card #</span><span class="detail-row-val">${safe(card.cardNum)}</span></div>`:''}
-      ${card.printRun?`<div class="detail-row"><span class="detail-row-label">Print Run</span><span class="detail-row-val" style="color:var(--gold)">/${card.printRun}</span></div>`:''}
+      ${card.printRun?`<div class="detail-row"><span class="detail-row-label">Print Run</span><span class="detail-row-val" style="color:var(--gold)">/${safe(card.printRun)}</span></div>`:''}
       <div class="detail-row"><span class="detail-row-label">Condition</span><span class="detail-row-val">${safe(card.grade||card.condition)}</span></div>
       ${isPSA?`<div class="detail-row"><span class="detail-row-label">PSA Cert #</span><div style="display:flex;gap:8px;align-items:center"><input class="form-input" id="cert-input" value="${safe(card.certNumber||'')}" placeholder="e.g. 12345678" style="max-width:140px;padding:5px 8px;font-size:12px"><button class="btn-sm gold" onclick="saveCert(${id})" style="padding:5px 10px">Save</button></div></div>`:''}
       <div class="detail-row"><span class="detail-row-label">Added</span><span class="detail-row-val" style="font-size:12px">${card.dateAdded?new Date(card.dateAdded).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</span></div>
@@ -1976,12 +1983,13 @@ function renderSold(){
   plEl.style.color=pl>=0?'var(--green)':'var(--red)';
   if(!count){ se('sold-list').innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No Sales Yet</div><div class="empty-sub">Record a sale from any card's detail view</div></div>`; return; }
   se('sold-list').innerHTML=soldHistory.map(s=>{
-    const d=s.dateSold?new Date(s.dateSold).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const parsedDate=s.dateSold?new Date(s.dateSold):null;
+    const d=parsedDate && Number.isFinite(parsedDate.getTime())?parsedDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
     return `<div class="sold-item">
       <div class="sold-item-name">${safe(s.player)}</div>
-      <div class="sold-item-meta">${[s.year,safe(s.set),safe(s.grade||s.condition)].filter(Boolean).join(' · ')}</div>
+      <div class="sold-item-meta">${[s.year,s.set,s.grade||s.condition].filter(Boolean).map(safe).join(' · ')}</div>
       <div class="sold-item-row">
-        <div><div style="font-size:11px;color:var(--muted)">${s.platform} · ${d}</div></div>
+        <div><div style="font-size:11px;color:var(--muted)">${safe(s.platform)} · ${safe(d)}</div></div>
         <div style="text-align:right">
           <div class="sold-item-price">${fmt(s.salePrice)}</div>
           <div class="sold-item-pl" style="color:${s.pl>=0?'var(--green)':'var(--red)'}">${fmtPL(s.pl)}</div>
@@ -2315,7 +2323,7 @@ let _sharedCards = [];
 function openSharedCard(idx) {
   const c = _sharedCards[idx];
   if(!c) return;
-  const hasPhoto = c.photo && c.photo !== '[photo]';
+  const hasPhoto = !!safeImageSrc(c.photo);
   const meta = [c.year, safe(c.team), safe(c.set)].filter(Boolean).join(' · ');
   const variation = c.variation ? `<div style="font-size:13px;color:var(--gold);margin-bottom:8px">${safe(c.variation)}</div>` : '';
   const printRun = c.printRun ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Print Run: /${c.printRun}</div>` : '';
@@ -2347,15 +2355,15 @@ function _renderSharedCards(cards) {
   const total = cards.reduce((s,c)=>s+(c.value||0),0);
   se('shared-body').innerHTML = `<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · <span style="color:var(--muted)">Tap a card for details</span></div>`
     + cards.map((c,i)=>{
-      const hasPhoto = c.photo && c.photo !== '[photo]';
+      const hasPhoto = !!safeImageSrc(c.photo);
       const thumb = hasPhoto
-        ? `<img src="${c.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+        ? `<img src="${safeImageSrc(c.photo)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
         : `<span style="font-size:24px">${sportEmoji(c.sport)}</span>`;
-      const meta = [c.year,safe(c.set),safe(c.variation)].filter(Boolean).join(' · ');
+      const meta = [c.year,c.set,c.variation].filter(Boolean).map(safe).join(' · ');
       return `<div class="card-item" style="cursor:pointer" onclick="openSharedCard(${i})">
         <div class="card-thumb" style="${hasPhoto?'padding:0;overflow:hidden;':'display:flex;align-items:center;justify-content:center;'}">${thumb}</div>
         <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
-        <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
+        <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${safe(c.sport)}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${safe(c.printRun)}</span>`:''}</div></div>
         <div class="card-prices">${c.value!=null?`<div class="price-val">${fmt(c.value)}</div>`:""}<div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
       </div>`;
     }).join('');
@@ -2364,7 +2372,7 @@ function _renderSharedCards(cards) {
 function _sharedError(msg) {
   se('main-app').style.display='none';
   se('shared-view').style.display='block';
-  se('shared-body').innerHTML=`<div style="color:var(--red);padding:20px;text-align:center">⚠️ ${msg}</div>`;
+  se('shared-body').textContent=String(msg||'Could not load shared collection');
 }
 
 // Compress a photo to target size (bytes) for sharing
@@ -2401,7 +2409,7 @@ function _buildShareHTML(cards) {
   const total = cards.reduce((s,c)=>s+(c.value||0),0);
   const sportIcon = s => s==='Baseball'?'⚾':s==='Basketball'?'🏀':s==='Football'?'🏈':s==='Hockey'?'🏒':s==='Soccer'?'⚽':s==='Non-Sports'?'🎬':'🃏';
   const rows = cards.map(c => {
-    const hasPhoto = c.photo && c.photo !== '[photo]';
+    const hasPhoto = !!safeImageSrc(c.photo);
     const thumb = hasPhoto
       ? `<img src="${c.photo}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
       : `<div style="width:56px;height:56px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${sportIcon(c.sport)}</div>`;
