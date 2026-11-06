@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import worker from '../pilot-backend/src/index.js';
+const res=await worker.fetch(new Request('https://cardvault-pilot.example/admin'),{});
+assert.equal(res.status,200);
+assert.equal(res.headers.get('cache-control'),'no-store');
+assert.equal(res.headers.get('x-frame-options'),'DENY');
+const page=await res.text();
+assert.ok(page.includes('id="token"'));
+assert.ok(page.includes("'/v1/admin/'+route"));
+assert.ok(!page.includes('localStorage'));
+assert.ok(!page.includes('sessionStorage'));
+const matches=[...page.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+assert.equal(matches.length,1);
+new vm.Script(matches[0][1],{filename:'admin.html inline'});
+assert.ok(page.includes('50-scan'));
+console.log('Mobile admin page smoke checks passed.');
