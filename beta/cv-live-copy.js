@@ -103,9 +103,18 @@ function cvLiveCleanSale(c){
 function cvLivePutPhotos(photos){
  return openPhotoDB().then(db=>new Promise((resolve,reject)=>{
   const tx=db.transaction('photos','readwrite'),store=tx.objectStore('photos');
-  // Preserve existing beta chase-card photos, which use separate "chase-..." IDs.
-  // Replacing matching numeric IDs is intentional when replacing inventory.
-  for(const [id,data] of photos)store.put({id,data});
+  // Remove stale beta inventory photos, or a numeric ID reused by live could
+  // accidentally display the photo of an unrelated beta test card.
+  // Keep chase images and all other nonnumeric photo keys.
+  const keys=store.getAllKeys();
+  keys.onsuccess=()=>{
+   for(const key of keys.result||[]){
+    if(typeof key==='number'||(typeof key==='string'&&/^\d+$/.test(key)))store.delete(key);
+   }
+   for(const [id,data] of photos)store.put({id,data});
+  };
+  keys.onerror=()=>{try{tx.abort()}catch(e){}};
+
   tx.oncomplete=resolve;
   tx.onerror=()=>reject(tx.error||Error('Card photo transfer failed'));
   tx.onabort=()=>reject(tx.error||Error('Card photo transfer aborted'));
