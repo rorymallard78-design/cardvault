@@ -1,0 +1,40 @@
+name: CardVault safety checks
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'dev/**'
+      - 'pilot-backend/**'
+      - 'tests/**'
+      - '.github/workflows/cardvault-checks.yml'
+  push:
+    branches: [main, security-hardening-20261106]
+    paths:
+      - 'app/**'
+      - 'dev/**'
+      - 'pilot-backend/**'
+      - 'tests/**'
+      - '.github/workflows/cardvault-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  static-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check Node version
+        run: node --version
+      - name: Check pilot Worker module syntax
+        run: node --check pilot-backend/src/index.js
+      - name: Run static CardVault smoke tests
+        run: node tests/smoke.mjs
+      - name: Run invitation quota and backend integration tests
+        run: node --disable-warning=ExperimentalWarning tests/pilot-integration.mjs

@@ -1284,7 +1284,14 @@ function sportEmoji(s){ return {Baseball:'⚾',Basketball:'🏀',Football:'🏈'
 function fmt(n){ return '$'+Math.abs(parseFloat(n)||0).toFixed(2); }
 function fmtPL(n){ n=parseFloat(n)||0; return (n>=0?'+$':'-$')+Math.abs(n).toFixed(2); }
 function fmtShort(n){ n=parseFloat(n)||0; return '$'+(Math.abs(n)>=1000?(Math.abs(n)/1000).toFixed(1)+'k':Math.abs(n).toFixed(0)); }
-function safe(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function safe(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function safeImageSrc(s){
+  const v=String(s||'').trim();
+  if(/^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(v) ||
+     /^https:\/\/[^\s"'<>]+$/i.test(v) ||
+     /^blob:https?:\/\/[^\s"'<>]+$/i.test(v)) return safe(v);
+  return '';
+}
 function toast(msg, type=''){
   const t=se('toast');
   t.textContent=msg; t.className='toast show'+(type?' '+type:'');
@@ -1294,16 +1301,16 @@ function toast(msg, type=''){
 // ===== CARD HTML =====
 function cardHTML(card, showPL=true){
   const pl = (card.value||0)-(card.cost||0);
-  const img = card.photo ? `<img src="${card.photo}" alt="">` : sportEmoji(card.sport);
-  const meta = [card.year, safe(card.set), safe(card.variation), card.cardNum].filter(Boolean).join(' · ');
+  const img = safeImageSrc(card.photo) ? `<img src="${safeImageSrc(card.photo)}" alt="">` : sportEmoji(card.sport);
+  const meta = [card.year,card.set,card.variation,card.cardNum].filter(Boolean).map(safe).join(' · ');
   const gradeTag = card.grade ? `<span class="tag tag-grade">${safe(card.grade)}</span>` : `<span class="tag tag-cond">${safe(card.condition)}</span>`;
-  const printTag = card.printRun ? `<span class="tag tag-print">/${card.printRun}</span>` : '';
-  return `<div class="card-item" onclick="openCard(${card.id})">
+  const printTag = card.printRun ? `<span class="tag tag-print">/${safe(card.printRun)}</span>` : '';
+  return `<div class="card-item" onclick="openCard(${Number.isSafeInteger(Number(card.id))?Number(card.id):-1})">
     <div class="card-thumb">${img}</div>
     <div class="card-body">
       <div class="card-name">${safe(card.player)}</div>
-      <div class="card-meta">${meta||card.team||'—'}</div>
-      <div class="card-tags"><span class="tag tag-sport">${sportEmoji(card.sport)} ${card.sport}</span>${gradeTag}${printTag}${card.needsPricing?'<span class="tag" style="background:rgba(247,95,111,.15);color:var(--red);border:1px solid rgba(247,95,111,.3)">Needs pricing</span>':''}${_pendingVal()===card.id?`<span class="tag" style="background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold)" onclick="event.stopPropagation();openPasteVal(${card.id})">📋 Paste ChatGPT Valuation</span>`:''}</div>
+      <div class="card-meta">${meta||safe(card.team)||'—'}</div>
+      <div class="card-tags"><span class="tag tag-sport">${sportEmoji(card.sport)} ${safe(card.sport)}</span>${gradeTag}${printTag}${card.needsPricing?'<span class="tag" style="background:rgba(247,95,111,.15);color:var(--red);border:1px solid rgba(247,95,111,.3)">Needs pricing</span>':''}${_pendingVal()===card.id?`<span class="tag" style="background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold)" onclick="event.stopPropagation();openPasteVal(${card.id})">📋 Paste ChatGPT Valuation</span>`:''}</div>
     </div>
     <div class="card-prices">
       <div class="price-val">${fmt(card.value)}</div>
@@ -1368,8 +1375,8 @@ function renderDetail(card){
   const id = card.id;
   const pl = (card.value||0)-(card.cost||0);
   const plClass = pl>=0?'var(--green)':'var(--red)';
-  const img = card.photo ? `<img src="${card.photo}" alt="">` : sportEmoji(card.sport);
-  const meta = [card.year, safe(card.set), safe(card.variation)].filter(Boolean).join(' · ');
+  const img = safeImageSrc(card.photo) ? `<img src="${safeImageSrc(card.photo)}" alt="">` : sportEmoji(card.sport);
+  const meta = [card.year,card.set,card.variation].filter(Boolean).map(safe).join(' · ');
   const hasEbay = !!getKey('ebay');
   const isPSA = card.grade && card.grade.toUpperCase().startsWith('PSA');
   const hasPSA = !!getKey('psa');
@@ -1377,15 +1384,15 @@ function renderDetail(card){
 
   se('detail-body').innerHTML = `
     <div class="detail-hero">
-      <div class="detail-img" id="detail-photo-thumb">${card.photo ? `<img src="${card.photo}" alt="">` : img}</div>
+      <div class="detail-img" id="detail-photo-thumb">${safeImageSrc(card.photo) ? `<img src="${safeImageSrc(card.photo)}" alt="">` : img}</div>
       <div class="detail-info">
         <div class="detail-name">${safe(card.player)}</div>
         <div class="detail-meta">${meta||'—'}</div>
         ${card.team?`<div class="detail-meta">${safe(card.team)}</div>`:''}
         <div class="detail-tags">
-          <span class="tag tag-sport">${sportEmoji(card.sport)} ${card.sport}</span>
+          <span class="tag tag-sport">${sportEmoji(card.sport)} ${safe(card.sport)}</span>
           ${card.grade?`<span class="tag tag-grade">${safe(card.grade)}</span>`:`<span class="tag tag-cond">${safe(card.condition)}</span>`}
-          ${card.printRun?`<span class="tag tag-print">/${card.printRun}</span>`:''}
+          ${card.printRun?`<span class="tag tag-print">/${safe(card.printRun)}</span>`:''}
         </div>
       </div>
     </div>
@@ -1434,7 +1441,7 @@ function renderDetail(card){
       </div>
       <div class="market-body" id="psa-body">
         <div class="market-empty">${hasPSA
-          ? (card.certNumber?`Cert #${card.certNumber} — tap Look Up`:'Tap Look Up to search by card details')
+          ? (card.certNumber?`Cert #${safe(card.certNumber)} — tap Look Up`:'Tap Look Up to search by card details')
           : 'Add your PSA token in Settings'}</div>
       </div>
     </div>` : ''}
@@ -1444,7 +1451,7 @@ function renderDetail(card){
     <div class="detail-section">
       <div class="detail-section-title">Details</div>
       ${card.cardNum?`<div class="detail-row"><span class="detail-row-label">Card #</span><span class="detail-row-val">${safe(card.cardNum)}</span></div>`:''}
-      ${card.printRun?`<div class="detail-row"><span class="detail-row-label">Print Run</span><span class="detail-row-val" style="color:var(--gold)">/${card.printRun}</span></div>`:''}
+      ${card.printRun?`<div class="detail-row"><span class="detail-row-label">Print Run</span><span class="detail-row-val" style="color:var(--gold)">/${safe(card.printRun)}</span></div>`:''}
       <div class="detail-row"><span class="detail-row-label">Condition</span><span class="detail-row-val">${safe(card.grade||card.condition)}</span></div>
       ${isPSA?`<div class="detail-row"><span class="detail-row-label">PSA Cert #</span><div style="display:flex;gap:8px;align-items:center"><input class="form-input" id="cert-input" value="${safe(card.certNumber||'')}" placeholder="e.g. 12345678" style="max-width:140px;padding:5px 8px;font-size:12px"><button class="btn-sm gold" onclick="saveCert(${id})" style="padding:5px 10px">Save</button></div></div>`:''}
       <div class="detail-row"><span class="detail-row-label">Added</span><span class="detail-row-val" style="font-size:12px">${card.dateAdded?new Date(card.dateAdded).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</span></div>
@@ -1926,8 +1933,8 @@ function renderPlayers(){
     const pl=val-cards.reduce((s,c)=>s+(c.cost||0),0);
     const initials=name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const photo=cards.find(c=>c.photo);
-    const avatar=photo?`<img src="${photo.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:`<span>${initials}</span>`;
-    return `<div class="player-card" onclick="openPlayerFolder('${safe(name).replace(/'/g,"\\'")}')">
+    const avatar=photo&&safeImageSrc(photo.photo)?`<img src="${safeImageSrc(photo.photo)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:`<span>${safe(initials)}</span>`;
+    return `<div class="player-card" data-player-name="${safe(name)}" onclick="openPlayerFolder(this.dataset.playerName)">
       <div class="player-card-inner">
         <div class="player-avatar">${avatar}</div>
         <div style="flex:1;min-width:0"><div class="player-name">${safe(name)}</div><div class="player-stats">${cards.length} card${cards.length!==1?'s':''}</div></div>
@@ -1948,7 +1955,7 @@ function openPlayerFolder(name){
   se('player-detail-content').innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <div style="width:56px;height:56px;border-radius:50%;background:var(--bg3);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);overflow:hidden">
-        ${cards.find(c=>c.photo)?`<img src="${cards.find(c=>c.photo).photo}" style="width:100%;height:100%;object-fit:cover">`:name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+        ${cards.find(c=>safeImageSrc(c.photo))?`<img src="${safeImageSrc(cards.find(c=>safeImageSrc(c.photo)).photo)}" style="width:100%;height:100%;object-fit:cover">`:safe(name.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2))}
       </div>
       <div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px">${safe(name)}</div>
@@ -1976,12 +1983,13 @@ function renderSold(){
   plEl.style.color=pl>=0?'var(--green)':'var(--red)';
   if(!count){ se('sold-list').innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">No Sales Yet</div><div class="empty-sub">Record a sale from any card's detail view</div></div>`; return; }
   se('sold-list').innerHTML=soldHistory.map(s=>{
-    const d=s.dateSold?new Date(s.dateSold).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+    const parsedDate=s.dateSold?new Date(s.dateSold):null;
+    const d=parsedDate && Number.isFinite(parsedDate.getTime())?parsedDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
     return `<div class="sold-item">
       <div class="sold-item-name">${safe(s.player)}</div>
-      <div class="sold-item-meta">${[s.year,safe(s.set),safe(s.grade||s.condition)].filter(Boolean).join(' · ')}</div>
+      <div class="sold-item-meta">${[s.year,s.set,s.grade||s.condition].filter(Boolean).map(safe).join(' · ')}</div>
       <div class="sold-item-row">
-        <div><div style="font-size:11px;color:var(--muted)">${s.platform} · ${d}</div></div>
+        <div><div style="font-size:11px;color:var(--muted)">${safe(s.platform)} · ${safe(d)}</div></div>
         <div style="text-align:right">
           <div class="sold-item-price">${fmt(s.salePrice)}</div>
           <div class="sold-item-pl" style="color:${s.pl>=0?'var(--green)':'var(--red)'}">${fmtPL(s.pl)}</div>
@@ -2000,13 +2008,13 @@ function renderInsights(){
     return;
   }
   function insightItem(c,rank,mainVal,subVal,subColor){
-    const img=c.photo?`<img src="${c.photo}" alt="">`:sportEmoji(c.sport);
-    const meta=[c.year,safe(c.set),safe(c.grade||c.condition)].filter(Boolean).join(' · ');
+    const img=safeImageSrc(c.photo)?`<img src="${safeImageSrc(c.photo)}" alt="">`:sportEmoji(c.sport);
+    const meta=[c.year,c.set,c.grade||c.condition].filter(Boolean).map(safe).join(' · ');
     const rankClass=rank<=3?['','rank-1','rank-2','rank-3'][rank]:'';
-    return `<div class="insight-item card-item" onclick="openCard(${c.id})">
+    return `<div class="insight-item card-item" onclick="openCard(${Number.isSafeInteger(Number(c.id))?Number(c.id):-1})">
       <div class="insight-rank ${rankClass}">${rank}</div>
       <div class="insight-thumb">${img}</div>
-      <div class="insight-info"><div class="insight-name">${safe(c.player)}</div><div class="insight-meta">${meta||c.sport}</div></div>
+      <div class="insight-info"><div class="insight-name">${safe(c.player)}</div><div class="insight-meta">${meta||safe(c.sport)}</div></div>
       <div class="insight-right"><div class="insight-val">${mainVal}</div><div class="insight-pl" style="color:${subColor}">${subVal}</div></div>
     </div>`;
   }
@@ -2315,15 +2323,15 @@ let _sharedCards = [];
 function openSharedCard(idx) {
   const c = _sharedCards[idx];
   if(!c) return;
-  const hasPhoto = c.photo && c.photo !== '[photo]';
-  const meta = [c.year, safe(c.team), safe(c.set)].filter(Boolean).join(' · ');
+  const hasPhoto = !!safeImageSrc(c.photo);
+  const meta = [c.year,c.team,c.set].filter(Boolean).map(safe).join(' · ');
   const variation = c.variation ? `<div style="font-size:13px;color:var(--gold);margin-bottom:8px">${safe(c.variation)}</div>` : '';
-  const printRun = c.printRun ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Print Run: /${c.printRun}</div>` : '';
+  const printRun = c.printRun ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Print Run: /${safe(c.printRun)}</div>` : '';
   const grade = c.grade ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Grade: ${safe(c.grade)}${c.certNumber?' · Cert #'+safe(c.certNumber):''}</div>` : '';
   const cond = !c.grade && c.condition ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Condition: ${safe(c.condition)}</div>` : '';
   const notes = c.notes ? `<div style="font-size:12px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${safe(c.notes)}</div>` : '';
   se('shared-modal-body').innerHTML = `
-    ${hasPhoto ? `<div style="width:100%;background:#000;max-height:320px;overflow:hidden;display:flex;align-items:center;justify-content:center;"><img src="${c.photo}" style="width:100%;max-height:320px;object-fit:contain;"></div>` : `<div style="width:100%;height:160px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:56px">${sportEmoji(c.sport)}</div>`}
+    ${hasPhoto ? `<div style="width:100%;background:#000;max-height:320px;overflow:hidden;display:flex;align-items:center;justify-content:center;"><img src="${safeImageSrc(c.photo)}" style="width:100%;max-height:320px;object-fit:contain;"></div>` : `<div style="width:100%;height:160px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:56px">${sportEmoji(c.sport)}</div>`}
     <div style="padding:16px">
       <div style="font-size:20px;font-weight:700;margin-bottom:4px">${safe(c.player)}</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${meta}</div>
@@ -2347,15 +2355,15 @@ function _renderSharedCards(cards) {
   const total = cards.reduce((s,c)=>s+(c.value||0),0);
   se('shared-body').innerHTML = `<div style="margin-bottom:16px;font-size:13px;color:var(--text2)">${cards.length} cards · <span style="color:var(--muted)">Tap a card for details</span></div>`
     + cards.map((c,i)=>{
-      const hasPhoto = c.photo && c.photo !== '[photo]';
+      const hasPhoto = !!safeImageSrc(c.photo);
       const thumb = hasPhoto
-        ? `<img src="${c.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+        ? `<img src="${safeImageSrc(c.photo)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
         : `<span style="font-size:24px">${sportEmoji(c.sport)}</span>`;
-      const meta = [c.year,safe(c.set),safe(c.variation)].filter(Boolean).join(' · ');
+      const meta = [c.year,c.set,c.variation].filter(Boolean).map(safe).join(' · ');
       return `<div class="card-item" style="cursor:pointer" onclick="openSharedCard(${i})">
         <div class="card-thumb" style="${hasPhoto?'padding:0;overflow:hidden;':'display:flex;align-items:center;justify-content:center;'}">${thumb}</div>
         <div class="card-body"><div class="card-name">${safe(c.player)}</div><div class="card-meta">${meta||'—'}</div>
-        <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${c.sport}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${c.printRun}</span>`:''}</div></div>
+        <div class="card-tags"><span class="tag tag-sport">${sportEmoji(c.sport)} ${safe(c.sport)}</span>${c.grade?`<span class="tag tag-grade">${safe(c.grade)}</span>`:`<span class="tag tag-cond">${safe(c.condition)}</span>`}${c.printRun?`<span class="tag tag-print">/${safe(c.printRun)}</span>`:''}</div></div>
         <div class="card-prices">${c.value!=null?`<div class="price-val">${fmt(c.value)}</div>`:""}<div style="font-size:10px;color:var(--muted);margin-top:2px">tap ›</div></div>
       </div>`;
     }).join('');
@@ -2364,7 +2372,7 @@ function _renderSharedCards(cards) {
 function _sharedError(msg) {
   se('main-app').style.display='none';
   se('shared-view').style.display='block';
-  se('shared-body').innerHTML=`<div style="color:var(--red);padding:20px;text-align:center">⚠️ ${msg}</div>`;
+  se('shared-body').textContent=String(msg||'Could not load shared collection');
 }
 
 // Compress a photo to target size (bytes) for sharing
@@ -2401,23 +2409,23 @@ function _buildShareHTML(cards) {
   const total = cards.reduce((s,c)=>s+(c.value||0),0);
   const sportIcon = s => s==='Baseball'?'⚾':s==='Basketball'?'🏀':s==='Football'?'🏈':s==='Hockey'?'🏒':s==='Soccer'?'⚽':s==='Non-Sports'?'🎬':'🃏';
   const rows = cards.map(c => {
-    const hasPhoto = c.photo && c.photo !== '[photo]';
+    const hasPhoto = !!safeImageSrc(c.photo);
     const thumb = hasPhoto
-      ? `<img src="${c.photo}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
+      ? `<img src="${safeImageSrc(c.photo)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">`
       : `<div style="width:56px;height:56px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${sportIcon(c.sport)}</div>`;
-    const meta = [c.year,c.set,c.variation].filter(Boolean).join(' · ');
+    const meta = [c.year,c.set,c.variation].filter(Boolean).map(safe).join(' · ');
     const badge = c.grade
-      ? `<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.grade}</span>`
-      : `<span style="background:#1e293b;color:#94a3b8;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${c.condition||''}</span>`;
-    const pr = c.printRun ? `<span style="background:#1e293b;color:#f59e0b;font-size:10px;padding:2px 6px;border-radius:4px">/${c.printRun}</span>` : '';
+      ? `<span style="background:#7c3aed;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${safe(c.grade)}</span>`
+      : `<span style="background:#1e293b;color:#94a3b8;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px">${safe(c.condition||'')}</span>`;
+    const pr = c.printRun ? `<span style="background:#1e293b;color:#f59e0b;font-size:10px;padding:2px 6px;border-radius:4px">/${safe(c.printRun)}</span>` : '';
     const val = c.value ? `<div style="font-size:15px;font-weight:700;color:#f59e0b">$${c.value.toLocaleString()}</div>` : '';
-    const photoFull = hasPhoto ? `<div id="pf${c.id}" style="display:none"><img src="${c.photo}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin-top:8px;"></div>` : '';
-    const notesHtml = c.notes ? `<div style="font-size:12px;color:#64748b;margin-top:4px">${c.notes}</div>` : '';
+    const photoFull = hasPhoto ? `<div id="pf${Number.isSafeInteger(Number(c.id))?Number(c.id):-1}" style="display:none"><img src="${safeImageSrc(c.photo)}" style="width:100%;max-height:300px;object-fit:contain;border-radius:8px;margin-top:8px;"></div>` : '';
+    const notesHtml = c.notes ? `<div style="font-size:12px;color:#64748b;margin-top:4px">${safe(c.notes)}</div>` : '';
     const tapHint = hasPhoto ? `<div style="font-size:10px;color:#334155;margin-top:4px">tap to expand photo</div>` : '';
-    return `<div onclick="var d=document.getElementById('pf${c.id}');if(d)d.style.display=d.style.display==='block'?'none':'block'" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
+    return `<div onclick="var d=document.getElementById('pf${Number.isSafeInteger(Number(c.id))?Number(c.id):-1}');if(d)d.style.display=d.style.display==='block'?'none':'block'" style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
       ${thumb}
       <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:2px">${c.player||''}</div>
+        <div style="font-size:15px;font-weight:600;color:#f1f5f9;margin-bottom:2px">${safe(c.player||'')}</div>
         <div style="font-size:11px;color:#64748b;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${meta}</div>
         <div>${badge}${pr}</div>
         ${notesHtml}${tapHint}${photoFull}
@@ -2452,7 +2460,7 @@ async function generateShareLink(){
     // Compress photos to ~40KB each before uploading
     const TARGET = 40 * 1024;
     const snapshot = await Promise.all(inventory.map(async c => {
-      const card = {...c, cost:undefined};
+      const card = {id:c.id,player:c.player,sport:c.sport,year:c.year,team:c.team,set:c.set,cardNum:c.cardNum,variation:c.variation,printRun:c.printRun,condition:c.condition,grade:c.grade,certNumber:c.certNumber,value:c.value,photo:c.photo};
       if(card.photo && card.photo.startsWith('data:') && card.photo.length * 0.75 > TARGET) {
         card.photo = await _compressForShare(card.photo, TARGET);
       }
@@ -2499,6 +2507,29 @@ async function generateShareLink(){
   }
 }
 
+// Shared Gist links are untrusted external JSON, not full CardVault backups.
+function cvValidateSharedCollection(rows) {
+  if(!Array.isArray(rows) || rows.length>2500)throw Error('Shared collection is invalid or too large');
+  const short=(v,max=180)=>typeof v==='string'?v.slice(0,max):'';
+  return rows.map(x=>{
+    if(!x || typeof x!=='object' || Array.isArray(x))throw Error('Invalid shared card');
+    const c={
+      player:short(x.player),year:short(x.year,20),sport:short(x.sport,40),
+      team:short(x.team),set:short(x.set),cardNum:short(x.cardNum,40),
+      variation:short(x.variation),condition:short(x.condition,40),
+      grade:short(x.grade,40),certNumber:short(x.certNumber,40),
+      printRun:short(x.printRun,40),
+    };
+    const numericId=Number(x.id);
+    if(Number.isSafeInteger(numericId)&&numericId>=0)c.id=numericId;
+    else c.id=0;
+    const value=Number(x.value);
+    if(x.value!==undefined&&x.value!==null&&Number.isFinite(value)&&value>=0&&value<=100000000)c.value=value;
+    if(typeof x.photo==='string'&&x.photo.length<=220000&&safeImageSrc(x.photo))c.photo=x.photo;
+    // Intentionally omit raw notes, cost basis, tokens and all other fields.
+    return c;
+  });
+}
 async function checkSharedView(){
   function getParam(str, key) {
     const idx = str.indexOf(key+'=');
@@ -2506,6 +2537,10 @@ async function checkSharedView(){
   }
   const gistId = getParam(window.location.search,'gist') || getParam(window.location.hash||'','gist');
   if(!gistId) return false;
+  if(!/^[a-f0-9]{20,32}$/i.test(gistId)){
+    _sharedError('Invalid shared collection link.');
+    return false;
+  }
 
   se('main-app').style.display='none';
   se('shared-view').style.display='block';
@@ -2520,10 +2555,14 @@ async function checkSharedView(){
     const fileInfo = data.files && data.files['collection.json'];
     if(!fileInfo) throw new Error('Collection not found in gist');
     // Use raw_url to get full content — GitHub truncates .content at 1MB
-    const rawRes = await fetch(fileInfo.raw_url);
+    const rawUrl = new URL(fileInfo.raw_url);
+    if(rawUrl.protocol!=='https:' || rawUrl.hostname!=='gist.githubusercontent.com')throw new Error('Unexpected shared collection source');
+    const rawRes = await fetch(rawUrl.toString());
     if(!rawRes.ok) throw new Error('Could not fetch collection data');
-    const cards = await rawRes.json();
-    _renderSharedCards(Array.isArray(cards) ? cards : []);
+    const rawText=await rawRes.text();
+    if(rawText.length>60*1024*1024)throw Error('Shared collection exceeds the safety limit');
+    const cards=cvValidateSharedCollection(JSON.parse(rawText));
+    _renderSharedCards(cards);
     return true;
   } catch(e) {
     _sharedError('Could not load shared collection.<br><small style="color:var(--muted)">' + e.message + '</small>');
@@ -2579,7 +2618,7 @@ function clearAllData(){
   if(window.ResizeObserver&&cvNav)new ResizeObserver(syncFabPosition).observe(cvNav);
   window.addEventListener('resize',syncFabPosition);
   // Extensions load only after crash recovery and core inventory initialization.
-  const modules=["cv-features.js?v=pulse-backup-v5","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-photos-v3","cv-pulse.js?v=news-and-release-v2","cv-pulse-tiles.js?v=visual-1","cv-voice.js?v=keyboard-dictation-v3"];
+  const modules=["cv-features.js?v=pulse-backup-v5","cv-receipts.js?v=finance-audit-1","cv-grading.js?v=restore-reconcile-v2","cv-dashboard.js?v=dash-clean-v1","cv-insights.js?v=final-audit-v5","cv-editing.js?v=edit-history-v1","cv-export.js?v=csv-export-fixed-v3","cv-import.js?v=pre-release-audit-v4","cv-chase.js?v=chase-photos-v3","cv-pulse.js?v=news-and-release-v2","cv-pulse-tiles.js?v=visual-1","cv-voice.js?v=keyboard-dictation-v3","cv-help.js?v=help-v1"];
   for(const path of modules){
     await new Promise((resolve,reject)=>{
       const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(Error('Could not load '+path));
