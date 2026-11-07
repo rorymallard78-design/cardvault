@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
+import vm from 'node:vm';
+const root='pilot/';
+const files=readdirSync(root).filter(n=>/\.(js|html)$/.test(n));
+assert.ok(files.includes('index.html'));
+assert.ok(files.includes('cv-help.js'));
+assert.ok(files.includes('cv-pilot.js'));
+const html=readFileSync(root+'index.html','utf8');
+const pilot=readFileSync(root+'cv-pilot.js','utf8');
+const modules=[...html.matchAll(/"([^"]+\.js\?v=[^"]+)"/g)].map(m=>m[1].split('?')[0]);
+for(const name of modules)assert.ok(files.includes(name),'Missing script '+name);
+for(const file of files){
+ const content=readFileSync(root+file,'utf8');
+ assert.ok(!content.includes('cv_dev_'),file+' uses development data storage');
+ assert.ok(!content.includes('cv_beta_'),file+' uses production data storage');
+ assert.ok(!content.includes('cv_inventory'),file+' references original live inventory');
+ assert.ok(!content.includes('cv_photos_db'),file+' references original live photo store');
+ if(file.endsWith('.js'))new vm.Script(content,{filename:file});
+}
+assert.ok(html.includes('cv_pilot_inventory'));
+assert.ok(html.includes('cv_pilot_photos_db'));
+assert.ok(html.includes('cv_pilot_sold'));
+assert.ok(html.includes('cv_pilot_backup'));
+assert.ok(!html.includes('async function scanCardPhoto(b64)'),'Browser-exposed default AI scanner remains');
+assert.ok(html.includes("Enter your CardVault beta invitation code"),'Missing manual-entry fallback');
+assert.ok(pilot.includes('const CODE_KEY='));
+assert.ok(pilot.includes('const API='));
+assert.ok(!pilot.includes('cv-pilot-url'),'Tester should never configure backend endpoint');
+assert.ok(pilot.includes("localStorage.setItem(CODE_KEY,entered)"),'Missing private invitation setting');
+assert.ok(pilot.includes('data.remaining'),'Missing quota handling');
+assert.ok(html.includes('cv-help.js?v='),'Missing help center');
+assert.ok(!html.includes('Load Five Demo Cards'),'Unsafe demo data overwrite button');
+console.log('CardVault invitation-only pilot: '+files.length+' files and '+modules.length+' modules verified.');
