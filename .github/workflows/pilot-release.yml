@@ -1,0 +1,24 @@
+name: CardVault isolated pilot checks
+on:
+  push:
+    branches: [pilot-beta-onboarding-20261106]
+    paths:
+      - 'pilot/**'
+      - 'tests/pilot-release-check.mjs'
+      - '.github/workflows/pilot-release.yml'
+  pull_request:
+    paths:
+      - 'pilot/**'
+      - 'tests/pilot-release-check.mjs'
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node tests/pilot-release-check.mjs
