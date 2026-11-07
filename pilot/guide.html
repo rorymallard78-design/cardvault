@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CardVault Pilot | Complete User Guide</title>
+<meta name="description" content="How to use CardVault Pilot: inventory, AI scanning, sales, grading, exports, backups and troubleshooting.">
+<link rel="stylesheet" href="guide.css?v=pilot-guide-1">
+</head><body><header><div class="wrap"><div class="brand">CARDVAULT / PILOT</div><div class="eyebrow">Private beta · User guide</div><h1>CardVault User Guide</h1>
+<p>Everything you need to get started, manage your card collection, understand your numbers, and protect your data.</p>
+<a class="button" href="./">Open CardVault Pilot</a><a class="button alt" href="start.html">Quick setup guide</a></div></header>
+<main class="wrap">
+<nav class="toc" aria-label="Guide contents"><a href="#start">Get started</a><a href="#scan">Scanning &amp; entry</a><a href="#features">Features</a><a href="#sales">Sales &amp; P&amp;L</a><a href="#backup">Backup &amp; restore</a><a href="#limits">Beta limitations</a><a href="#troubleshoot">Troubleshooting</a><a href="#feedback">Testing feedback</a></nav>
+<section class="card" id="start"><div class="pill">Start here</div><h2>1. Set up CardVault</h2>
+<ol class="steps">
+<li>Open <a href="./">CardVault Pilot</a> in Chrome on Android or Safari on iPhone.</li>
+<li>Go to <strong>Settings</strong> by tapping the gear icon.</li>
+<li>Locate <strong>Beta AI Scanning — 50 Free Scans</strong> and enter your unique invitation code (beginning with <code>CV-</code>).</li>
+<li>Tap <strong>Activate 50 Free Scans</strong> and confirm the invitation is accepted. Your remaining scan count appears in Settings.</li>
+<li>Start building your collection using the large <strong>+</strong> button or Inventory → <strong>+ Add Card</strong>.</li>
+</ol>
+<p class="mini">To install a home-screen shortcut: Chrome (Android) → ⋮ → Install app / Add to Home screen; Safari (iPhone) → Share → Add to Home Screen. The wording varies by browser.</p>
+<div class="notice success">This private beta provides up to <strong>50 AI card-identification scans per invitation</strong>. It does not require a personal Anthropic or Cloudflare account. Manual entry remains available afterward.</div>
+</section>
+<section class="card" id="scan"><h2>2. Add cards and use AI scanning</h2>
+<h3>Photo scanning</h3>
+<ol><li>Tap <strong>+</strong> → <strong>Add One Card</strong>.</li><li>Choose <strong>Take a Photo</strong> or <strong>Upload a Photo</strong>.</li><li>Wait for the identification fields to populate.</li><li>Review and correct the player, year, sport, team, set, variation/parallel, card number, condition, grading details and numbering where applicable.</li><li>Enter your <strong>actual acquisition cost</strong> and current estimated value, if known. Save the card.</li></ol>
+<p class="mini">Use a clear, well-lit photo of one card with minimal glare. The AI extracts visible details; it does not certify authenticity, guarantee a grade, or establish market value.</p>
+<h3>Manual entry and batch entry</h3>
+<p>Tap <strong>+</strong> → <strong>Enter Manually</strong> to add cards without using scans. For several cards, <strong>+</strong> → <strong>Batch Add Cards</strong>, upload multiple images and review each result before saving. Each successful AI identification may consume an invitation scan.</p>
+<h3>Edit a card</h3><p>Open the card in <strong>Inventory</strong> to review or update its details, photo, cost, and estimated value. Keep unknown purchase cost separate from a card that was truly acquired for $0.</p>
+</section>
+<section class="card" id="features"><h2>3. Explore the main features</h2>
+<table class="data"><tbody>
+<tr><th>Dashboard</th><td>Collection totals, recorded acquisition cost, estimated value, unrealized gains/losses, items needing attention, and recent inventory.</td></tr>
+<tr><th>Inventory</th><td>Search cards by player/set/year, filter by sport, add or edit cards, export inventory CSV, and import CSV/XLS/XLSX spreadsheets.</td></tr>
+<tr><th>Players</th><td>Browse cards grouped by player and open that player's collection.</td></tr>
+<tr><th>Sold</th><td>Record individual and lot sales, review sale history, and export sales CSV.</td></tr>
+<tr><th>Insights</th><td>Review highest-value cards, leading unrealized gains, and cards below purchase cost.</td></tr>
+<tr><th>Chase</th><td>Build a wishlist of cards to acquire, add reference details/photos, and export your chase list.</td></tr>
+<tr><th>Pulse</th><td>Follow hobby release information and watchlists. Always verify release dates and availability with official sources.</td></tr>
+<tr><th>Grading</th><td>Track grading submissions and related costs. Predictions and investment calculations are estimates, not guarantees.</td></tr>
+<tr><th>Settings</th><td>Manage your invitation and scan balance, data exports/restores, and optional integrations. Some advanced tools require separate credentials and are not included in the 50-scan invitation.</td></tr>
+</tbody></table>
+<h3>Sharing collection links</h3>
+<p>The Dashboard includes a <strong>Share</strong> action. Review which cards and values are included before sharing. Treat anyone with the resulting link as a potential viewer; do not include confidential notes.</p>
+</section>
+<section class="card" id="sales"><h2>4. Track sales and results</h2>
+<ol><li>Open the card you sold, or go to <strong>Sold</strong> → <strong>+ Record Sale</strong>.</li><li>Record the gross sale amount and relevant selling costs, including fees, postage and other expenses where applicable.</li><li>For multiple cards sold together, use the <strong>Record Sale / Lot</strong> flow and review the allocation and individual cards.</li><li>Confirm the transaction appears in <strong>Sold History</strong> and the Dashboard/Insights figures update as expected.</li></ol>
+<div class="notice">CardVault's profit figures depend on the cost basis, market values, and selling expenses you record. They are not guaranteed prices or tax calculations. Export sales CSV for a separate audit trail.</div>
+</section>
+<section class="card" id="backup"><h2>5. Back up and restore your collection</h2>
+<p><strong>Your collection and card photos are stored locally in this browser on this device.</strong> The Pilot does <strong>not</strong> automatically sync your inventory to a cloud account or another phone.</p>
+<h3>Make a complete backup</h3><ol class="steps">
+<li>Open <strong>Settings</strong> and scroll to the <strong>Data</strong> controls.</li>
+<li>Tap <strong>Export Complete Backup (Including Photos)</strong>.</li>
+<li>Save the downloaded <strong>.json</strong> file in a secure location outside the browser, such as your personal cloud drive or computer.</li>
+<li>Keep another copy before major imports, significant sales activity, phone upgrades, or clearing browsing data.</li>
+</ol>
+<h3>Restore from a backup</h3><ol><li>In <strong>CardVault Pilot</strong> only, go to <strong>Settings → Data → Restore from Backup</strong>.</li><li>Choose your previously exported CardVault JSON backup.</li><li>Review the preview counts for inventory cards, sold cards, photos, and other records.</li><li>Only if you intend to <strong>replace the current Pilot collection</strong>, type <code>RESTORE</code> and tap <strong>Restore Pilot Data</strong>.</li><li>After the page reloads, verify your cards, photos, sales and totals.</li></ol>
+<div class="notice"><strong>Important:</strong> A restore replaces existing data in the Pilot version on the current browser. It does not merge collections. Never restore a test backup to a different version of CardVault without confirming the destination. Keep your source backup until everything has been checked.</div>
+<h3>CSV versus complete backup</h3><p>A <strong>CSV</strong> is useful for spreadsheets and checking inventory or sales, but it is <strong>not</strong> the same as a complete JSON backup containing photos and additional app data. Use <strong>Export Complete Backup (Including Photos)</strong> to preserve the most complete record.</p>
+</section>
+<section class="card" id="limits"><h2>6. Understand the private beta</h2>
+<ul>
+<li><strong>Invitation allowance:</strong> 50 successful AI identification scans per tester, tracked on the server. No promise of additional free scans after the trial.</li>
+<li><strong>Manual use:</strong> Keep viewing and manually adding/editing cards even when scan credits are exhausted.</li>
+<li><strong>Storage:</strong> Local browser storage only. Browser data deletion, phone loss, or storage failure can erase records unless you saved a separate backup.</li>
+<li><strong>No cloud account or automatic sync:</strong> Opening a different browser, device, or install context may not show the same collection.</li>
+<li><strong>AI reliability:</strong> Identification mistakes are possible. Check unusual parallels, serial numbers, grades and valuations yourself.</li>
+<li><strong>Market and grading tools:</strong> Certain features may use manual links, optional credentials, or estimates rather than verified live sales comps. Do not treat numbers as investment advice.</li>
+<li><strong>Beta quality:</strong> You may encounter unfinished features or bugs. If a screen behaves unexpectedly, back up before trying a potentially destructive action.</li>
+<li><strong>Privacy:</strong> A photo submitted for AI scanning is sent to CardVault's Cloudflare backend and the Anthropic AI service for processing. Do not scan or share images containing personal financial information or secrets.</li>
+</ul>
+<p>There is no subscription purchase or app-store payment required for the Pilot. Future plans and pricing are not active yet.</p>
+</section>
+<section class="card" id="troubleshoot"><h2>7. Troubleshooting</h2>
+<details><summary>My invitation code is rejected</summary><p>Check that the code starts with <code>CV-</code> and that you copied the entire code, with no missing characters. Open Settings → Beta AI Scanning and try activating again. If the code still fails, contact the person who invited you; codes can be revoked or exhausted.</p></details>
+<details><summary>AI doesn't scan or a scan fails</summary><p>Use a smaller, clear image of a single card, verify the remaining allowance in Settings and retry when online. If it continues to fail, use Enter Manually and report the message displayed. Avoid repeated retries that may use scan allowance.</p></details>
+<details><summary>AI found the wrong card or parallel</summary><p>Edit the pre-filled fields before saving. Use printed card numbers, serial numbering, checklist research or other reliable references to confirm the exact variation.</p></details>
+<details><summary>My collection seems empty on another phone</summary><p>This beta does not sync between devices. Use the original browser/profile or restore from a complete JSON backup saved from the original device. Do not clear the original phone's browser data.</p></details>
+<details><summary>My backup downloaded, but I can't find it</summary><p>Check the browser download history and your phone's Downloads folder. Move the file to a trusted cloud drive or another secure location before changing devices.</p></details>
+<details><summary>I recorded a sale but can't find it</summary><p>Open Sold History, check that the sold count and details changed, then check Insights. If the record is missing, avoid entering the same sale twice until you have checked whether it was saved. Back up your data and report the issue.</p></details>
+<details><summary>Can I use CardVault after 50 scans?</summary><p>Yes. You can continue manually recording, editing and exporting your collection. The 50-scan trial applies only to the invitation-based AI identification service.</p></details>
+<details><summary>Where can I find help inside the app?</summary><p>Open Settings → Help &amp; Getting Started → Open Help Center. A Help button may also appear on the Dashboard.</p></details>
+</section>
+<section class="card" id="feedback"><h2>8. Help improve CardVault</h2><p>This is a private beta. Useful feedback includes the feature you were using, the steps you took, what you expected to happen, what actually happened, and a screenshot if it does not show private information. Please tell your inviter what phone/browser you used.</p>
+<h3>Suggested first-day test</h3>
+<ul><li>Activate the invitation and confirm your scan balance.</li><li>Scan a card and verify all identified fields.</li><li>Add a different card manually.</li><li>Edit a card and enter purchase cost plus estimated value.</li><li>Record a sale and verify Sold History.</li><li>Export a complete JSON backup with photos.</li><li>Try restoring the backup only when you're comfortable replacing your current Pilot data.</li></ul>
+<a class="button" href="./">Open CardVault Pilot</a><a class="button alt" href="start.html">Quick setup</a></section>
+</main><footer><div class="wrap footer-row"><span>CardVault Pilot · Private beta · November 2026</span><span>Keep your invitation code and backups secure.</span></div></footer></body></html>
