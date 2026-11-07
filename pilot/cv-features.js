@@ -379,8 +379,8 @@ async function cvxImportBackup(e){
    if(data.pulseCustom!==undefined&&(!Array.isArray(data.pulseCustom)||data.pulseCustom.some(x=>!x||typeof x.id!=='string'||typeof x.title!=='string')))throw Error('Invalid custom release calendar in backup');
    if(data.pulseWatch!==undefined&&(!Array.isArray(data.pulseWatch)||data.pulseWatch.some(x=>typeof x!=='string')))throw Error('Invalid release watchlist in backup');
   CVX.pendingBackup=data;
-  panel.style.display='block';panel.innerHTML="<div style=\"font-weight:700;color:var(--gold);margin-bottom:8px\">Review Backup Before Restoring</div><div class=\"cvx-mini\" id=\"cvx-restore-summary\" style=\"margin-bottom:12px\"></div><div class=\"cvx-mini\">Type RESTORE to confirm replacing this DEVELOPMENT inventory and sold history:</div><input class=\"form-input\" id=\"cvx-restore-phrase\" placeholder=\"RESTORE\" autocomplete=\"off\"><div style=\"display:flex;gap:8px;margin-top:10px\"><button class=\"btn btn-danger\" onclick=\"cvxPerformRestore()\">Restore Development Data</button><button class=\"btn btn-secondary\" onclick=\"cvxCancelRestore()\">Cancel</button></div>";
-  se('cvx-restore-summary').textContent='Backup: '+data.inventory.length+' inventory cards, '+data.soldHistory.length+' sales, '+Object.keys(data.photos).length+' card photos, '+(data.receipts?.length||0)+' receipts, '+(data.grading?.length||0)+' grading submissions. Current: '+inventory.length+' inventory cards, '+soldHistory.length+' sales. This replaces the CURRENT TEST VAULT only.';
+  panel.style.display='block';panel.innerHTML="<div style=\"font-weight:700;color:var(--gold);margin-bottom:8px\">Review Backup Before Restoring</div><div class=\"cvx-mini\" id=\"cvx-restore-summary\" style=\"margin-bottom:12px\"></div><div class=\"cvx-mini\">Type RESTORE to confirm replacing this PILOT inventory and sold history:</div><input class=\"form-input\" id=\"cvx-restore-phrase\" placeholder=\"RESTORE\" autocomplete=\"off\"><div style=\"display:flex;gap:8px;margin-top:10px\"><button class=\"btn btn-danger\" onclick=\"cvxPerformRestore()\">Restore Pilot Data</button><button class=\"btn btn-secondary\" onclick=\"cvxCancelRestore()\">Cancel</button></div>";
+  se('cvx-restore-summary').textContent='Backup: '+data.inventory.length+' inventory cards, '+data.soldHistory.length+' sales, '+Object.keys(data.photos).length+' card photos, '+(data.receipts?.length||0)+' receipts, '+(data.grading?.length||0)+' grading submissions. Current: '+inventory.length+' inventory cards, '+soldHistory.length+' sales. This replaces the CURRENT PILOT VAULT only.';
  }catch(err){CVX.pendingBackup=null;panel.style.display='block';panel.textContent='Backup not accepted: '+err.message;toast('Invalid backup: '+err.message,'error');}
 }
 function cvxCancelRestore(){CVX.pendingBackup=null;const el=se('cvx-restore-confirm');if(el){el.style.display='none';el.textContent='';}}
@@ -453,7 +453,7 @@ async function cvxPerformRestore(){
    toast('Restore did not start: '+err.message,'error');
    const panel=se('cvx-restore-confirm');if(panel)panel.textContent='Restore did not start: '+err.message;
   }
- }finally{CVX.restoring=false;if(button&&button.isConnected){button.disabled=false;button.textContent='Replace Beta Data';}}
+ }finally{CVX.restoring=false;if(button&&button.isConnected){button.disabled=false;button.textContent='Restore Pilot Data';}}
 }
 
 function cvxClearAllData(){

@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const content=readFileSync('pilot/cv-features.js','utf8');
+new vm.Script(content,{filename:'pilot/cv-features.js'});
+assert.ok(content.includes('Restore Pilot Data'));
+assert.ok(content.includes('CURRENT PILOT VAULT'));
+assert.ok(content.includes('cvRecoveryBegin()'));
+assert.ok(content.includes('cvRecoveryCommit()'));
+assert.ok(content.includes('cvRecoveryRollback()'));
+assert.ok(content.includes("value!=='RESTORE'"));
+assert.ok(!content.includes('Restore Development Data'));
+console.log('Pilot restore safeguards and screen labels checked.');
