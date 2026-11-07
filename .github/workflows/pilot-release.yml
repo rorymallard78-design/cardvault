@@ -1,7 +1,7 @@
 name: CardVault isolated pilot checks
 on:
   push:
-    branches: [pilot-beta-onboarding-20261106]
+    branches: [pilot-beta-onboarding-20261106, pilot-restore-wording-20261106]
     paths:
       - 'pilot/**'
       - 'tests/pilot-release-check.mjs'
@@ -22,3 +22,4 @@ jobs:
         with:
           node-version: '24'
       - run: node tests/pilot-release-check.mjs
+      - run: node tests/pilot-restore-check.mjs
