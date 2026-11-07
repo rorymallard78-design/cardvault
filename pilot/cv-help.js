@@ -70,6 +70,7 @@
     panel.innerHTML='<div class="setting-section-title">❓ Help &amp; Getting Started</div><div class="setting-box"><div class="setting-desc">New to CardVault? Learn its features, how to record sales, protect your collection, and use AI scans.</div><button type="button" class="btn btn-secondary" id="cv-help-settings-button" style="margin-top:10px">Open Help Center</button></div>';
     settings.insertBefore(panel,settings.firstChild);
     panel.querySelector('button').addEventListener('click',open);
+    const docs=document.createElement('p');docs.style.cssText='font-size:13px;line-height:1.6;margin:12px 0 0';docs.innerHTML='<a href="start.html" target="_blank" rel="noopener noreferrer">Quick Setup Guide</a> · <a href="guide.html" target="_blank" rel="noopener noreferrer">Complete User Guide</a>';panel.append(docs);
   }
   const dash=document.getElementById('page-dash');
   if(dash){
